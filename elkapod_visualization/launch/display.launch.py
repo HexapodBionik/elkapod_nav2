@@ -9,16 +9,18 @@ from launch.conditions import IfCondition
 import yaml
 
 def generate_launch_description():
-    # Find the package
     urdf_launch_package = FindPackageShare(package="elkapod_description").find(
         "elkapod_description"
     )
 
-    default_rviz_config_path = os.path.join(urdf_launch_package, "config/elkapod.rviz")
+    vis_package = FindPackageShare(package="elkapod_visualization").find(
+        "elkapod_visualization"
+    )
 
-    # Create the launch description and populate
+    default_rviz_config_path = os.path.join(vis_package, "config/elkapod.rviz")
+
+
     ld = LaunchDescription()
-
     ld.add_action(
         Node(
             package="rviz2",
