@@ -2,14 +2,36 @@ from launch import LaunchDescription, LaunchContext
 from launch.actions import DeclareLaunchArgument, OpaqueFunction
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
-import json
+from launch.conditions import IfCondition
+import datetime
 
 
 def launch_setup(context: LaunchContext, *args, **kwargs):
+
+    database_name = LaunchConfiguration('rtab_db').perform(context)
+    database_file_name = datetime.datetime.strftime(
+        datetime.datetime.now(), "%d_%m_%Y_%H_%M") + ".db"
+    if database_name:
+        database_file_name = database_name if database_name.endswith(
+            ".db") else database_name + '.db'
+
+    print(f"Using {database_file_name}")
+
     frame_id = LaunchConfiguration('frame_id')
 
+    external_odom_frame_id = LaunchConfiguration(
+        'external_odom_frame_id').perform(context)
+
+    fixed_frame_from_imu = False
+    fixed_frame_id = LaunchConfiguration('fixed_frame_id').perform(context)
+    if not fixed_frame_id:
+        if external_odom_frame_id:
+            fixed_frame_id = external_odom_frame_id
+        else:
+            fixed_frame_from_imu = True
+            fixed_frame_id = frame_id.perform(context) + "_stabilized"
+
     imu_topic = LaunchConfiguration('imu_topic')
-    imu_used = imu_topic.perform(context) != ''
 
     rgbd_image_topic = LaunchConfiguration('rgbd_image_topic')
     rgbd_images_topic = LaunchConfiguration('rgbd_images_topic')
@@ -17,32 +39,20 @@ def launch_setup(context: LaunchContext, *args, **kwargs):
         context) != '' or rgbd_images_topic.perform(context) != ''
     rgbd_cameras = 0 if rgbd_images_topic.perform(context) != '' else 1
 
+    lidar_topic = LaunchConfiguration('lidar_topic')
+    lidar_topic_value = lidar_topic.perform(context)
+    lidar_topic_deskewed = lidar_topic_value + "/deskewed"
+
     voxel_size = LaunchConfiguration('voxel_size')
     voxel_size_value = float(voxel_size.perform(context))
 
     use_sim_time = LaunchConfiguration('use_sim_time')
 
-    lidar_topic = LaunchConfiguration('lidar_topic')
-    lidar_topic_value = lidar_topic.perform(context)
-    lidar_topic_deskewed = lidar_topic_value + "/deskewed"
-
     localization = LaunchConfiguration('localization').perform(context)
     localization = localization == 'true' or localization == 'True'
 
-    deskewing = LaunchConfiguration('deskewing').perform(context)
-    deskewing = deskewing == 'true' or deskewing == 'True'
-
     deskewing_slerp = LaunchConfiguration('deskewing_slerp').perform(context)
     deskewing_slerp = deskewing_slerp == 'true' or deskewing_slerp == 'True'
-
-    fixed_frame_from_imu = False
-    fixed_frame_id = LaunchConfiguration('fixed_frame_id').perform(context)
-    if not fixed_frame_id and imu_used:
-        fixed_frame_from_imu = True
-        fixed_frame_id = frame_id.perform(context) + "_stabilized"
-
-    if not fixed_frame_id or not deskewing:
-        lidar_topic_deskewed = lidar_topic
 
     # Rule of thumb:
     max_correspondence_distance = voxel_size_value * 10.0
@@ -64,16 +74,14 @@ def launch_setup(context: LaunchContext, *args, **kwargs):
         'Icp/MaxCorrespondenceDistance': str(max_correspondence_distance),
         'Icp/Strategy': '1',
         'Icp/OutlierRatio': '0.7',
-        'Rtabmap/WorkingDirectory': '/elkapod_sim_ws/data'
+        'Rtabmap/WorkingDirectory': "/elkapod_sim_ws/data"
     }
 
     icp_odometry_parameters = {
         'expected_update_rate': LaunchConfiguration('expected_update_rate'),
-        # If fixed_frame_id is set, we do deskewing externally below
-        'deskewing': not fixed_frame_id and deskewing,
+        'wait_imu_to_init': True,
         'odom_frame_id': 'icp_odom',
         'guess_frame_id': fixed_frame_id,
-        'deskewing_slerp': deskewing_slerp,
         # RTAB-Map's internal parameters are strings:
         'Odom/ScanKeyFrameThr': '0.4',
         'OdomF2M/ScanSubtractRadius': str(voxel_size_value),
@@ -81,42 +89,30 @@ def launch_setup(context: LaunchContext, *args, **kwargs):
         'OdomF2M/BundleAdjustment': 'false',
         'Icp/CorrespondenceRatio': '0.01'
     }
-    if imu_used:
-        icp_odometry_parameters['wait_imu_to_init'] = True
 
     rtabmap_parameters = {
         'subscribe_depth': False,
         'subscribe_rgb': False,
-        'subscribe_odom_info': True,
+        'subscribe_odom_info': not external_odom_frame_id,
         'subscribe_scan_cloud': True,
-        'map_frame_id': 'new_map',
+        'odom_frame_id': (external_odom_frame_id if external_odom_frame_id else ""),
         # This will adjust camera position based on difference between lidar and camera stamps.
         'odom_sensor_sync': True,
-        # RTAB-Map's internal parameters are strings:
+        'Rtabmap/DetectionRate': '0',
         'RGBD/ProximityMaxGraphDepth': '0',
         'RGBD/ProximityPathMaxNeighbors': '1',
         'RGBD/AngularUpdate': '0.05',
         'RGBD/LinearUpdate': '0.05',
         'RGBD/CreateOccupancyGrid': 'false',
+        'RGBD/StartAtOrigin': 'true',
         'Mem/NotLinkedNodesKept': 'false',
         'Mem/STMSize': '30',
         'Reg/Strategy': '1',
         'Icp/CorrespondenceRatio': str(LaunchConfiguration('min_loop_closure_overlap').perform(context))
     }
 
-    arguments = []
-    if localization:
-        rtabmap_parameters['Mem/IncrementalMemory'] = 'False'
-        rtabmap_parameters['Mem/InitWMWithAllNodes'] = 'True'
-    else:
-        # This will delete the previous database (~/.ros/rtabmap.db)
-        arguments.append('-d')
-
-    remappings = [('odom', 'icp_odom')]
-    if imu_used:
-        remappings.append(('imu', LaunchConfiguration('imu_topic')))
-    else:
-        remappings.append(('imu', 'imu_not_used'))
+    remappings = [('imu', imu_topic),
+                  ('odom', 'icp_odom')]
     if rgbd_image_used:
         if rgbd_cameras == 1:
             remappings.append(
@@ -125,41 +121,64 @@ def launch_setup(context: LaunchContext, *args, **kwargs):
             remappings.append(
                 ('rgbd_images', LaunchConfiguration('rgbd_images_topic')))
 
-    with open('/elkapod_sim_ws/data/locals.json', 'w') as fp:
-        fp.write(str(locals()))
-        print("dump was a success")
+    arguments = []
+    if localization:
+        rtabmap_parameters['Mem/IncrementalMemory'] = 'False'
+        rtabmap_parameters['Mem/InitWMWithAllNodes'] = 'True'
+    else:
+        arguments.append('-d')
+
+    if external_odom_frame_id:
+        viz_topic = lidar_topic_deskewed
+    else:
+        viz_topic = 'odom_filtered_input_scan'
 
     nodes = [
+        # Assemble deskewed scans based on icp odometry
         Node(
-            package='rtabmap_odom', executable='icp_odometry', output='screen',
-            parameters=[shared_parameters, icp_odometry_parameters],
-            remappings=remappings + [('scan_cloud', lidar_topic_deskewed)]),
+            package='rtabmap_util', executable='point_cloud_assembler', output='screen',
+            parameters=[{
+                'use_sim_time': use_sim_time,
+                'assembling_time': LaunchConfiguration('assembling_time'),
+                # This will make the node subscribing to icp odometry topic "icp_odom"
+                'fixed_frame_id': (external_odom_frame_id if external_odom_frame_id else "")}],
+            remappings=[('cloud', lidar_topic),
+                        ('odom', 'icp_odom')]),
 
+        # Update the map
         Node(
             package='rtabmap_slam', executable='rtabmap', output='screen',
             parameters=[shared_parameters, rtabmap_parameters,
                         {'subscribe_rgbd': rgbd_image_used,
-                         'rgbd_cameras': rgbd_cameras}],
-            remappings=remappings + [('scan_cloud', lidar_topic_deskewed)],
+                         'rgbd_cameras': rgbd_cameras,
+                         'topic_queue_size': 40,
+                         'sync_queue_size': 40,
+                         "database_path": f'/elkapod_sim_ws/data/{database_file_name}', }],
+            remappings=remappings +
+            [('scan_cloud', 'assembled_cloud')],
             arguments=arguments),
 
+        # Just for visualization
         Node(
             package='rtabmap_viz', executable='rtabmap_viz', output='screen',
             parameters=[shared_parameters, rtabmap_parameters],
-            remappings=remappings + [('scan_cloud', 'odom_filtered_input_scan')])
-    ]
+            condition=IfCondition(LaunchConfiguration('use_rtabmap_viz')),
+            remappings=remappings + [('scan_cloud', viz_topic)]),
 
-    if fixed_frame_from_imu:
-        # Create a stabilized base frame based on imu for lidar deskewing
-        nodes.append(
-            Node(
-                package='rtabmap_util', executable='imu_to_tf', output='screen',
-                parameters=[{
+        Node(
+            package='rtabmap_odom', executable='icp_odometry', output='screen',
+            parameters=[shared_parameters, icp_odometry_parameters],
+            remappings=remappings + [('scan_cloud', lidar_topic)]),
+
+        Node(
+            package='rtabmap_util', executable='imu_to_tf', output='screen',
+            parameters=[{
                     'use_sim_time': use_sim_time,
                     'fixed_frame_id': fixed_frame_id,
                     'base_frame_id': frame_id,
                     'wait_for_transform_duration': 0.001}],
-                remappings=[('imu/data', imu_topic)]))
+            remappings=[('imu/data', imu_topic)])
+    ]
 
     return nodes
 
@@ -173,16 +192,16 @@ def generate_launch_description():
             description='Use simulated clock.'),
 
         DeclareLaunchArgument(
-            'deskewing', default_value='false',
-            description='Enable lidar deskewing.'),
-
-        DeclareLaunchArgument(
             'frame_id', default_value='base_link',
             description='Base frame of the robot.'),
 
         DeclareLaunchArgument(
             'fixed_frame_id', default_value='',
-            description='Fixed frame used for lidar deskewing. If not set, we will generate one from IMU.'),
+            description='Fixed frame used for lidar deskewing. If not set, we will generate one from IMU or external_odom_frame_id if not null.'),
+
+        DeclareLaunchArgument(
+            'external_odom_frame_id', default_value='',
+            description='Provide external odometry with TF, disabling icp_odometry.'),
 
         DeclareLaunchArgument(
             'localization', default_value='false',
@@ -194,7 +213,7 @@ def generate_launch_description():
 
         DeclareLaunchArgument(
             'imu_topic', default_value='/imu',
-            description='IMU topic (ignored if empty).'),
+            description='Name of an IMU topic.'),
 
         DeclareLaunchArgument(
             'rgbd_image_topic', default_value='',
@@ -205,10 +224,6 @@ def generate_launch_description():
             description='RGBD images topic (ignored if empty, override "rgbd_image_topic" if set). Would be the output of a rtabmap_sync\'s rgbdx_sync node.'),
 
         DeclareLaunchArgument(
-            'expected_update_rate', default_value='15.0',
-            description='Expected lidar frame rate. Ideally, set it slightly higher than actual frame rate, like 15 Hz for 10 Hz lidar scans.'),
-
-        DeclareLaunchArgument(
             'voxel_size', default_value='0.1',
             description='Voxel size (m) of the downsampled lidar point cloud. For indoor, set it between 0.1 and 0.3. For outdoor, set it to 0.5 or over.'),
 
@@ -217,8 +232,24 @@ def generate_launch_description():
             description='Minimum scan overlap pourcentage to accept a loop closure.'),
 
         DeclareLaunchArgument(
-            'deskewing_slerp', default_value='false',
+            'expected_update_rate', default_value='15.0',
+            description='Expected lidar frame rate. Ideally, set it slightly higher than actual frame rate, like 15 Hz for 10 Hz lidar scans.'),
+
+        DeclareLaunchArgument(
+            'assembling_time', default_value='1.0',
+            description='How much time (sec) we assemble lidar scans before sending them to mapping node.'),
+
+        DeclareLaunchArgument(
+            'deskewing_slerp', default_value='true',
             description='Use fast slerp interpolation between first and last stamps of the scan for deskewing. It would less accruate than requesting TF for every points, but a lot faster. Enable this if the delay of the deskewed scan is significant larger than the original scan.'),
+
+        DeclareLaunchArgument(
+            'use_rtabmap_viz', default_value='True',
+            description='Use RTABMap\'s vizualization tool'),
+
+        DeclareLaunchArgument(
+            'rtab_db', default_value='',
+            description='Name of the database to save results of slam, or used for localization'),
 
         DeclareLaunchArgument(
             'qos', default_value='1',
