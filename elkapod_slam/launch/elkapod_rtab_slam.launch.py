@@ -51,9 +51,6 @@ def launch_setup(context: LaunchContext, *args, **kwargs):
     localization = LaunchConfiguration('localization').perform(context)
     localization = localization == 'true' or localization == 'True'
 
-    deskewing_slerp = LaunchConfiguration('deskewing_slerp').perform(context)
-    deskewing_slerp = deskewing_slerp == 'true' or deskewing_slerp == 'True'
-
     # Rule of thumb:
     max_correspondence_distance = voxel_size_value * 10.0
 
@@ -186,7 +183,6 @@ def launch_setup(context: LaunchContext, *args, **kwargs):
 def generate_launch_description():
     return LaunchDescription([
 
-        # Launch arguments
         DeclareLaunchArgument(
             'use_sim_time', default_value='true',
             description='Use simulated clock.'),
@@ -232,16 +228,12 @@ def generate_launch_description():
             description='Minimum scan overlap pourcentage to accept a loop closure.'),
 
         DeclareLaunchArgument(
-            'expected_update_rate', default_value='15.0',
+            'expected_update_rate', default_value='10.0',
             description='Expected lidar frame rate. Ideally, set it slightly higher than actual frame rate, like 15 Hz for 10 Hz lidar scans.'),
 
         DeclareLaunchArgument(
             'assembling_time', default_value='1.0',
             description='How much time (sec) we assemble lidar scans before sending them to mapping node.'),
-
-        DeclareLaunchArgument(
-            'deskewing_slerp', default_value='true',
-            description='Use fast slerp interpolation between first and last stamps of the scan for deskewing. It would less accruate than requesting TF for every points, but a lot faster. Enable this if the delay of the deskewed scan is significant larger than the original scan.'),
 
         DeclareLaunchArgument(
             'use_rtabmap_viz', default_value='True',

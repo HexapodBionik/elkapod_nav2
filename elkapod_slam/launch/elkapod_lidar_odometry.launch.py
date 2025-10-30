@@ -2,7 +2,7 @@ from launch import LaunchDescription
 from launch_ros.actions import Node
 from ament_index_python.packages import get_package_share_directory
 from launch.substitutions import LaunchConfiguration
-from launch.actions import IncludeLaunchDescription, TimerAction
+from launch.actions import IncludeLaunchDescription, TimerAction, DeclareLaunchArgument
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 import os
 
@@ -16,7 +16,7 @@ def generate_launch_description():
         'config',
         'ekf.yaml'
     )
-    
+
     leg_odometry_launch_path = os.path.join(
         get_package_share_directory('elkapod_odometry'),
         'launch',
@@ -24,6 +24,9 @@ def generate_launch_description():
     )
 
     return LaunchDescription([
+        DeclareLaunchArgument(
+            'sim_mode', default_value='true',
+            description='Use sim_time'),
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(leg_odometry_launch_path),
             launch_arguments={'sim_mode': use_sim_time,
