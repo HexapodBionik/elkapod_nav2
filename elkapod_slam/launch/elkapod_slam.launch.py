@@ -70,17 +70,6 @@ def launch_setup(context: LaunchContext, *args, **kwargs):
         'approx_sync': rgbd_image_used,
         'wait_for_transform': 0.2,
         # RTAB-Map's internal parameters are strings:
-        'Icp/PointToPlane': 'true',
-        'Icp/Iterations': '10',
-        'Icp/VoxelSize': str(voxel_size_value),
-        'Icp/Epsilon': '0.001',
-        'Icp/PointToPlaneK': '20',
-        'Icp/PointToPlaneRadius': '0',
-        'Icp/MaxTranslation': '3',
-        'Icp/MaxCorrespondenceDistance': str(max_correspondence_distance),
-        'Icp/Strategy': '1',
-        'Icp/OutlierRatio': '0.7',
-        'Rtabmap/WorkingDirectory': "/elkapod_sim_ws/data"
     }
 
     icp_odometry_parameters = {
@@ -89,11 +78,6 @@ def launch_setup(context: LaunchContext, *args, **kwargs):
         'odom_frame_id': 'icp_odom',
         'guess_frame_id': fixed_frame_id,
         # RTAB-Map's internal parameters are strings:
-        'Odom/ScanKeyFrameThr': '0.4',
-        'OdomF2M/ScanSubtractRadius': str(voxel_size_value),
-        'OdomF2M/ScanMaxSize': '15000',
-        'OdomF2M/BundleAdjustment': 'false',
-        'Icp/CorrespondenceRatio': '0.1'
     }
 
     rtabmap_parameters = {
@@ -104,17 +88,6 @@ def launch_setup(context: LaunchContext, *args, **kwargs):
         'odom_frame_id': (external_odom_frame_id if external_odom_frame_id else ""),
         # This will adjust camera position based on difference between lidar and camera stamps.
         'odom_sensor_sync': True,
-        'Rtabmap/DetectionRate': '0',
-        'RGBD/ProximityMaxGraphDepth': '0',
-        'RGBD/ProximityPathMaxNeighbors': '1',
-        'RGBD/AngularUpdate': '0.05',
-        'RGBD/LinearUpdate': '0.05',
-        'RGBD/CreateOccupancyGrid': 'false',
-        'RGBD/StartAtOrigin': 'true',
-        'Mem/NotLinkedNodesKept': 'false',
-        'Mem/STMSize': '30',
-        'Reg/Strategy': '1',
-        'Icp/CorrespondenceRatio': str(LaunchConfiguration('min_loop_closure_overlap').perform(context))
     }
 
     remappings = [('imu', imu_topic),
