@@ -27,7 +27,7 @@ def generate_launch_description():
     return LaunchDescription([
         DeclareLaunchArgument(
             'rviz_only', default_value='true',
-            description='If true, starts gazebo in headless mode, also doesn\'t opens rtabmap viewer'),
+            description='If true, starts gazebo in headless mode, also doesn\'t opens rtabmap viewer, overwrites headless for gazebo launch'),
 
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(elkapod_core_launch_path),

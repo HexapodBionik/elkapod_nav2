@@ -3,10 +3,13 @@ from launch.actions import DeclareLaunchArgument, OpaqueFunction
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 from launch.conditions import IfCondition
+from ament_index_python.packages import get_package_share_directory
 import datetime
+import os
 
 
 def launch_setup(context: LaunchContext, *args, **kwargs):
+    elkapod_slam_dir = get_package_share_directory('elkapod_slam')
 
     database_name = LaunchConfiguration('rtab_db').perform(context)
     database_file_name = datetime.datetime.strftime(
@@ -16,6 +19,12 @@ def launch_setup(context: LaunchContext, *args, **kwargs):
             ".db") else database_name + '.db'
 
     print(f"Using {database_file_name}")
+
+    rtabmap_config_path = os.path.join(
+        elkapod_slam_dir,
+        'config',
+        'rtabmap.ini'
+    )
 
     frame_id = LaunchConfiguration('frame_id')
 
@@ -84,7 +93,7 @@ def launch_setup(context: LaunchContext, *args, **kwargs):
         'OdomF2M/ScanSubtractRadius': str(voxel_size_value),
         'OdomF2M/ScanMaxSize': '15000',
         'OdomF2M/BundleAdjustment': 'false',
-        'Icp/CorrespondenceRatio': '0.01'
+        'Icp/CorrespondenceRatio': '0.1'
     }
 
     rtabmap_parameters = {
@@ -134,11 +143,11 @@ def launch_setup(context: LaunchContext, *args, **kwargs):
         # Assemble deskewed scans based on icp odometry
         Node(
             package='rtabmap_util', executable='point_cloud_assembler', output='screen',
-            parameters=[{
-                'use_sim_time': use_sim_time,
-                'assembling_time': LaunchConfiguration('assembling_time'),
-                # This will make the node subscribing to icp odometry topic "icp_odom"
-                'fixed_frame_id': (external_odom_frame_id if external_odom_frame_id else "")}],
+            parameters=[{'config_path': rtabmap_config_path,
+                         'use_sim_time': use_sim_time,
+                         'assembling_time': LaunchConfiguration('assembling_time'),
+                         # This will make the node subscribing to icp odometry topic "icp_odom"
+                         'fixed_frame_id': (external_odom_frame_id if external_odom_frame_id else "")}],
             remappings=[('cloud', lidar_topic),
                         ('odom', 'icp_odom')]),
 
@@ -146,7 +155,8 @@ def launch_setup(context: LaunchContext, *args, **kwargs):
         Node(
             package='rtabmap_slam', executable='rtabmap', output='screen',
             parameters=[shared_parameters, rtabmap_parameters,
-                        {'subscribe_rgbd': rgbd_image_used,
+                        {'config_path': rtabmap_config_path,
+                         'subscribe_rgbd': rgbd_image_used,
                          'rgbd_cameras': rgbd_cameras,
                          'topic_queue_size': 40,
                          'sync_queue_size': 40,
@@ -158,22 +168,24 @@ def launch_setup(context: LaunchContext, *args, **kwargs):
         # Just for visualization
         Node(
             package='rtabmap_viz', executable='rtabmap_viz', output='screen',
-            parameters=[shared_parameters, rtabmap_parameters],
+            parameters=[shared_parameters, rtabmap_parameters,
+                        {'config_path': rtabmap_config_path, }],
             condition=IfCondition(LaunchConfiguration('use_rtabmap_viz')),
             remappings=remappings + [('scan_cloud', viz_topic)]),
 
         Node(
             package='rtabmap_odom', executable='icp_odometry', output='screen',
-            parameters=[shared_parameters, icp_odometry_parameters],
+            parameters=[shared_parameters, icp_odometry_parameters,
+                        {'config_path': rtabmap_config_path, }],
             remappings=remappings + [('scan_cloud', lidar_topic)]),
 
         Node(
             package='rtabmap_util', executable='imu_to_tf', output='screen',
-            parameters=[{
-                    'use_sim_time': use_sim_time,
-                    'fixed_frame_id': fixed_frame_id,
-                    'base_frame_id': frame_id,
-                    'wait_for_transform_duration': 0.001}],
+            parameters=[{'config_path': rtabmap_config_path,
+                         'use_sim_time': use_sim_time,
+                         'fixed_frame_id': fixed_frame_id,
+                         'base_frame_id': frame_id,
+                         'wait_for_transform_duration': 0.001}],
             remappings=[('imu/data', imu_topic)])
     ]
 
