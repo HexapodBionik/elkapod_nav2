@@ -18,7 +18,7 @@ def launch_setup(context: LaunchContext, *args, **kwargs):
         database_file_name = database_name if database_name.endswith(
             ".db") else database_name + '.db'
 
-    print(f"Using {database_file_name}")
+    # print(f"Using {database_file_name}")
 
     rtabmap_config_path = os.path.join(
         elkapod_slam_dir,
@@ -221,7 +221,7 @@ def generate_launch_description():
             description='How much time (sec) we assemble lidar scans before sending them to mapping node.'),
 
         DeclareLaunchArgument(
-            'use_rtabmap_viz', default_value='True',
+            'use_rtabmap_viz', default_value='False',
             description='Use RTABMap\'s vizualization tool'),
 
         DeclareLaunchArgument(
