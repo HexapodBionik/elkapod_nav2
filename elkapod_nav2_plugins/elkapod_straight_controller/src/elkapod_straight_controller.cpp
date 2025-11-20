@@ -1,22 +1,14 @@
-/*
- * SPDX-License-Identifier: BSD-3-Clause
- *
- *  Author(s): Shrijit Singh <shrijitsingh99@gmail.com>
- *  Contributor: Pham Cong Trang <phamcongtranghd@gmail.com>
- *  Contributor: Mitchell Sayer <mitchell4408@gmail.com>
- */
-
 #include "elkapod_straight_controller/elkapod_straight_controller.hpp"
 
 #include <algorithm>
 #include <memory>
 #include <string>
 
+#include "elkapod_straight_controller/utils.hpp"
 #include "nav2_core/controller_exceptions.hpp"
 #include "nav2_core/planner_exceptions.hpp"
 #include "nav2_util/geometry_utils.hpp"
 #include "nav2_util/node_utils.hpp"
-
 using nav2_util::declare_parameter_if_not_declared;
 using nav2_util::geometry_utils::euclidean_distance;
 using std::abs;
@@ -60,30 +52,33 @@ void ElkapodStraightController::configure(
   logger_ = node->get_logger();
   clock_ = node->get_clock();
 
-  declare_parameter_if_not_declared(node, plugin_name_ + ".desired_linear_vel",
+  declare_parameter_if_not_declared(node, plugin_name_ + ".max_linear_vel",
                                     rclcpp::ParameterValue(0.2));
   declare_parameter_if_not_declared(node, plugin_name_ + ".lookahead_dist",
-                                    rclcpp::ParameterValue(0.4));
+                                    rclcpp::ParameterValue(0.5));
   declare_parameter_if_not_declared(node, plugin_name_ + ".max_angular_vel",
                                     rclcpp::ParameterValue(1.0));
   declare_parameter_if_not_declared(node, plugin_name_ + ".transform_tolerance",
                                     rclcpp::ParameterValue(0.1));
 
-  node->get_parameter(plugin_name_ + ".desired_linear_vel", desired_linear_vel_);
+  node->get_parameter(plugin_name_ + ".max_linear_vel", max_linear_vel);
   node->get_parameter(plugin_name_ + ".lookahead_dist", lookahead_dist_);
   node->get_parameter(plugin_name_ + ".max_angular_vel", max_angular_vel_);
   double transform_tolerance;
   node->get_parameter(plugin_name_ + ".transform_tolerance", transform_tolerance);
   transform_tolerance_ = rclcpp::Duration::from_seconds(transform_tolerance);
-
+  state_ = ROTATION;
   global_pub_ = node->create_publisher<nav_msgs::msg::Path>("received_global_plan", 1);
+  simple_plan_pub_ = node->create_publisher<nav_msgs::msg::Path>("simplified_plan", 1);
 }
 
 void ElkapodStraightController::cleanup() {
-  RCLCPP_INFO(logger_,
-              "Cleaning up controller: %s of type pure_pursuit_controller::ElkapodStraightController",
-              plugin_name_.c_str());
+  RCLCPP_INFO(
+      logger_,
+      "Cleaning up controller: %s of type pure_pursuit_controller::ElkapodStraightController",
+      plugin_name_.c_str());
   global_pub_.reset();
+  simple_plan_pub_.reset();
 }
 
 void ElkapodStraightController::activate() {
@@ -92,6 +87,7 @@ void ElkapodStraightController::activate() {
       "Activating controller: %s of type pure_pursuit_controller::ElkapodStraightController\"  %s",
       plugin_name_.c_str(), plugin_name_.c_str());
   global_pub_->on_activate();
+  simple_plan_pub_->on_activate();
 }
 
 void ElkapodStraightController::deactivate() {
@@ -100,63 +96,50 @@ void ElkapodStraightController::deactivate() {
       "Dectivating controller: %s of type pure_pursuit_controller::ElkapodStraightController\"  %s",
       plugin_name_.c_str(), plugin_name_.c_str());
   global_pub_->on_deactivate();
+  simple_plan_pub_->on_deactivate();
 }
 
 void ElkapodStraightController::setSpeedLimit(const double& speed_limit, const bool& percentage) {
   (void)speed_limit;
   (void)percentage;
+  RCLCPP_INFO(logger_, "setSpeedLimit method has been invoked in %s", plugin_name_.c_str());
 }
 
 geometry_msgs::msg::TwistStamped ElkapodStraightController::computeVelocityCommands(
     const geometry_msgs::msg::PoseStamped& pose, const geometry_msgs::msg::Twist& velocity,
     nav2_core::GoalChecker* goal_checker) {
+  const double eps = 0.05;
   (void)velocity;
   (void)goal_checker;
-
-  auto transformed_plan = transformGlobalPlan(pose);
-
-  // Find the first pose which is at a distance greater than the specified lookahed distance
-  auto goal_pose_it = std::find_if(
-      transformed_plan.poses.begin(), transformed_plan.poses.end(), [&](const auto& ps) {
-        return hypot(ps.pose.position.x, ps.pose.position.y) >= lookahead_dist_;
-      });
-
-  // If the last pose is still within lookahed distance, take the last pose
-  if (goal_pose_it == transformed_plan.poses.end()) {
-    goal_pose_it = std::prev(transformed_plan.poses.end());
-  }
-  auto goal_pose = goal_pose_it->pose;
-
-  double linear_vel, angular_vel;
-
-  // If the goal pose is in front of the robot then compute the velocity using the pure pursuit
-  // algorithm, else rotate with the max angular velocity until the goal pose is in front of the
-  // robot
-  if (goal_pose.position.x > 0) {
-    auto curvature =
-        2.0 * goal_pose.position.y /
-        (goal_pose.position.x * goal_pose.position.x + goal_pose.position.y * goal_pose.position.y);
-    linear_vel = desired_linear_vel_;
-    angular_vel = desired_linear_vel_ * curvature;
-  } else {
-    linear_vel = 0.0;
-    angular_vel = max_angular_vel_;
-  }
-
-  // Create and publish a TwistStamped message with the desired velocity
   geometry_msgs::msg::TwistStamped cmd_vel;
+  double rotationDiff =
+      shortest_angle_diff(calculateSegmentAngle(pose, simple_plan_.poses[1]), tf2::getYaw(pose.pose.orientation));
+
+  if (std::abs(rotationDiff) <= eps) {
+    double distance = nav2_util::geometry_utils::euclidean_distance(pose, simple_plan_.poses[1]);
+    double speed = distance >= 1 ? max_linear_vel : max_linear_vel * easeOutCubic(distance);
+    cmd_vel.twist.linear.set__x(speed);
+  } else {
+    double speed =
+        rotationDiff > 0.5 ? max_angular_vel_ : max_angular_vel_ * easeOutCubic(2 * rotationDiff);
+    cmd_vel.twist.angular.set__z(speed);
+  }
   cmd_vel.header.frame_id = pose.header.frame_id;
   cmd_vel.header.stamp = clock_->now();
-  cmd_vel.twist.linear.x = linear_vel;
-  cmd_vel.twist.angular.z =
-      max(-1.0 * abs(max_angular_vel_), min(angular_vel, abs(max_angular_vel_)));
-
   return cmd_vel;
 }
 
 void ElkapodStraightController::setPlan(const nav_msgs::msg::Path& path) {
-  global_pub_->publish(path);
   global_plan_ = path;
+  PoseStamped robot_pose;
+  nav2_util::getCurrentPose(robot_pose, *tf_);
+  trimPath(global_plan_, robot_pose, lookahead_dist_);
+  simple_plan_ = simplifyPath(global_plan_);
+  RCLCPP_INFO(logger_, "Original plan size %ld, trimmed plan size %ld, simplified plan size %ld",
+              path.poses.size(), global_plan_.poses.size(), simple_plan_.poses.size());
+  std::cout << global_plan_.poses.size() << "  " << path.poses.size() << std::endl;
+  global_pub_->publish(global_plan_);
+  simple_plan_pub_->publish(simple_plan_);
 }
 
 nav_msgs::msg::Path ElkapodStraightController::transformGlobalPlan(
@@ -223,10 +206,10 @@ nav_msgs::msg::Path ElkapodStraightController::transformGlobalPlan(
 }
 
 bool ElkapodStraightController::transformPose(const std::shared_ptr<tf2_ros::Buffer> tf,
-                                          const std::string frame,
-                                          const geometry_msgs::msg::PoseStamped& in_pose,
-                                          geometry_msgs::msg::PoseStamped& out_pose,
-                                          const rclcpp::Duration& transform_tolerance) const {
+                                              const std::string frame,
+                                              const geometry_msgs::msg::PoseStamped& in_pose,
+                                              geometry_msgs::msg::PoseStamped& out_pose,
+                                              const rclcpp::Duration& transform_tolerance) const {
   // Implementation taken as is fron nav_2d_utils in nav2_dwb_controller
 
   if (in_pose.header.frame_id == frame) {
@@ -259,7 +242,8 @@ bool ElkapodStraightController::transformPose(const std::shared_ptr<tf2_ros::Buf
   return false;
 }
 
-}  // namespace nav2_pure_pursuit_controller
+}  // namespace elkapod_straight_controller
 
 // Register this controller as a nav2_core plugin
-PLUGINLIB_EXPORT_CLASS(elkapod_straight_controller::ElkapodStraightController, nav2_core::Controller)
+PLUGINLIB_EXPORT_CLASS(elkapod_straight_controller::ElkapodStraightController,
+                       nav2_core::Controller)

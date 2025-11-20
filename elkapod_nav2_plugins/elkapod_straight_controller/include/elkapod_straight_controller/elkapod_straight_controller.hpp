@@ -11,6 +11,7 @@
 #include "rclcpp/rclcpp.hpp"
 
 namespace elkapod_straight_controller {
+enum ControllerState { ROTATION, LINEAR };
 
 class ElkapodStraightController : public nav2_core::Controller {
  public:
@@ -47,15 +48,20 @@ class ElkapodStraightController : public nav2_core::Controller {
   rclcpp::Logger logger_{rclcpp::get_logger("ElkapodStraightController")};
   rclcpp::Clock::SharedPtr clock_;
 
-  double desired_linear_vel_;
   double lookahead_dist_;
+  double max_linear_vel;
   double max_angular_vel_;
   rclcpp::Duration transform_tolerance_{0, 0};
-
+  ControllerState state_;
   nav_msgs::msg::Path global_plan_;
+  nav_msgs::msg::Path simple_plan_;
+
+
   std::shared_ptr<rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Path>> global_pub_;
+  std::shared_ptr<rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Path>> simple_plan_pub_;
+
 };
 
-}
+}  // namespace elkapod_straight_controller
 
 #endif

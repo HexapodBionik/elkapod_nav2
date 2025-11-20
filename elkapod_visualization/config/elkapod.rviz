@@ -7,11 +7,16 @@ Panels:
         - /Global Options1
         - /Map1
       Splitter Ratio: 0.5
-    Tree Height: 431
+    Tree Height: 404
   - Class: rviz_common/Views
     Expanded:
       - /Current View1
     Name: Views
+    Splitter Ratio: 0.5
+  - Class: rviz_common/Tool Properties
+    Expanded:
+      - /2D Goal Pose1
+    Name: Tool Properties
     Splitter Ratio: 0.5
 Visualization Manager:
   Class: ""
@@ -359,6 +364,13 @@ Visualization Manager:
   Name: root
   Tools:
     - Class: rviz_default_plugins/MoveCamera
+    - Class: rviz_default_plugins/SetGoal
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: navigation/goal_pose
   Transformation:
     Current:
       Class: rviz_default_plugins/TF
@@ -388,13 +400,15 @@ Visualization Manager:
     Saved: ~
 Window Geometry:
   Displays:
-    collapsed: true
+    collapsed: false
   Height: 1011
-  Hide Left Dock: true
+  Hide Left Dock: false
   Hide Right Dock: false
-  QMainWindow State: 000000ff00000000fd0000000100000000000002400000039dfc0200000002fb000000100044006900730070006c006100790073000000003b00000230000000c700fffffffb0000000a00560069006500770073000000027100000167000000a000ffffff000007800000039d00000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  QMainWindow State: 000000ff00000000fd0000000100000000000002400000039dfc0200000003fb000000100044006900730070006c006100790073010000003b00000215000000c700fffffffb0000000a005600690065007700730100000256000000d0000000a000fffffffb0000001e0054006f006f006c002000500072006f0070006500720074006900650073010000032c000000ac0000005c00ffffff0000053a0000039d00000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  Tool Properties:
+    collapsed: false
   Views:
-    collapsed: true
+    collapsed: false
   Width: 1920
   X: 1920
   Y: 32
