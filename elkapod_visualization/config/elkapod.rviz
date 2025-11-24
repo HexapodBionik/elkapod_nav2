@@ -6,12 +6,18 @@ Panels:
       Expanded:
         - /Global Options1
         - /Map1
+        - /Path2
       Splitter Ratio: 0.5
-    Tree Height: 431
+    Tree Height: 410
   - Class: rviz_common/Views
     Expanded:
       - /Current View1
     Name: Views
+    Splitter Ratio: 0.5
+  - Class: rviz_common/Tool Properties
+    Expanded:
+      - /2D Goal Pose1
+    Name: Tool Properties
     Splitter Ratio: 0.5
 Visualization Manager:
   Class: ""
@@ -351,6 +357,34 @@ Visualization Manager:
         Reliability Policy: Reliable
         Value: /navigation/global_costmap/published_footprint
       Value: true
+    - Alpha: 1
+      Buffer Length: 1
+      Class: rviz_default_plugins/Path
+      Color: 255; 17; 88
+      Enabled: true
+      Head Diameter: 0.30000001192092896
+      Head Length: 0.20000000298023224
+      Length: 0.30000001192092896
+      Line Style: Lines
+      Line Width: 0.029999999329447746
+      Name: Path
+      Offset:
+        X: 0
+        Y: 0
+        Z: 0
+      Pose Color: 255; 85; 255
+      Pose Style: Axes
+      Radius: 0.029999999329447746
+      Shaft Diameter: 0.10000000149011612
+      Shaft Length: 0.10000000149011612
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /navigation/received_global_plan
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
@@ -359,6 +393,13 @@ Visualization Manager:
   Name: root
   Tools:
     - Class: rviz_default_plugins/MoveCamera
+    - Class: rviz_default_plugins/SetGoal
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: navigation/goal_pose
   Transformation:
     Current:
       Class: rviz_default_plugins/TF
@@ -366,35 +407,37 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 17.362804412841797
+      Distance: 3.4981019496917725
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 0.735078752040863
-        Y: 0.07105752825737
-        Z: 1.1197534799575806
+        X: 0.8661266565322876
+        Y: -0.26531627774238586
+        Z: 2.4600484371185303
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.8700000643730164
+      Pitch: 1.284999132156372
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 3.206838846206665
+      Yaw: 3.186838150024414
     Saved: ~
 Window Geometry:
   Displays:
-    collapsed: true
-  Height: 1011
-  Hide Left Dock: true
+    collapsed: false
+  Height: 1043
+  Hide Left Dock: false
   Hide Right Dock: false
-  QMainWindow State: 000000ff00000000fd0000000100000000000002400000039dfc0200000002fb000000100044006900730070006c006100790073000000003b00000230000000c700fffffffb0000000a00560069006500770073000000027100000167000000a000ffffff000007800000039d00000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  QMainWindow State: 000000ff00000000fd000000010000000000000240000003bdfc0200000003fb000000100044006900730070006c006100790073010000003b0000021b000000c700fffffffb0000000a00560069006500770073010000025c000000e8000000a000fffffffb0000001e0054006f006f006c002000500072006f0070006500720074006900650073010000034a000000ae0000005c00ffffff0000053a000003bd00000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  Tool Properties:
+    collapsed: false
   Views:
-    collapsed: true
+    collapsed: false
   Width: 1920
-  X: 1920
-  Y: 32
+  X: 0
+  Y: 0
