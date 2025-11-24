@@ -13,6 +13,10 @@
 namespace elkapod_straight_controller {
 enum ControllerState { ROTATION, LINEAR };
 
+using PoseStamped = geometry_msgs::msg::PoseStamped;
+using Path = nav_msgs::msg::Path;
+using Point = geometry_msgs::msg::Point;
+
 class ElkapodStraightController : public nav2_core::Controller {
  public:
   ElkapodStraightController() = default;
@@ -34,12 +38,8 @@ class ElkapodStraightController : public nav2_core::Controller {
   void setPlan(const nav_msgs::msg::Path& path) override;
 
  protected:
-  nav_msgs::msg::Path transformGlobalPlan(const geometry_msgs::msg::PoseStamped& pose);
-
-  bool transformPose(const std::shared_ptr<tf2_ros::Buffer> tf, const std::string frame,
-                     const geometry_msgs::msg::PoseStamped& in_pose,
-                     geometry_msgs::msg::PoseStamped& out_pose,
-                     const rclcpp::Duration& transform_tolerance) const;
+  void shortenPath(nav_msgs::msg::Path& path, const PoseStamped& base_pose);
+  void updateOrientationPath(nav_msgs::msg::Path& path);
 
   rclcpp_lifecycle::LifecycleNode::WeakPtr node_;
   std::shared_ptr<tf2_ros::Buffer> tf_;
@@ -54,12 +54,10 @@ class ElkapodStraightController : public nav2_core::Controller {
   rclcpp::Duration transform_tolerance_{0, 0};
   ControllerState state_;
   nav_msgs::msg::Path global_plan_;
-  nav_msgs::msg::Path simple_plan_;
-
+  // nav_msgs::msg::Path simple_plan_;
 
   std::shared_ptr<rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Path>> global_pub_;
   std::shared_ptr<rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Path>> simple_plan_pub_;
-
 };
 
 }  // namespace elkapod_straight_controller

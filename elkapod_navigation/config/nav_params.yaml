@@ -1,6 +1,6 @@
 navigation/planner_server:
   ros__parameters:
-    expected_planner_frequency: 3.0
+    expected_planner_frequency: 2.0
     costmap_update_timeout: 1.0
     introspection_mode: "disabled"
     planner_plugins: ["GridBased"]
@@ -21,7 +21,7 @@ navigation/planner_server:
 
 navigation/controller_server:
   ros__parameters:
-    controller_frequency: 20.0
+    controller_frequency: 5.0
     costmap_update_timeout: 0.3
     min_x_velocity_threshold: 0.01
     min_y_velocity_threshold: 0.5
@@ -45,7 +45,7 @@ navigation/controller_server:
       plugin: "elkapod_straight_controller::ElkapodStraightController"
       debug_trajectory_details: True
       max_linear_vel: 0.2
-      max_angular_vel: 1.0
+      max_angular_vel: 0.5
       lookahead_dist: 2.0
       transform_tolerance: 1.0
 

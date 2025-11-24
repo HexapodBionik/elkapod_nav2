@@ -47,25 +47,6 @@ double calculateSegmentAngle(const PoseStamped& p1, const PoseStamped& p2) {
   return std::atan2(p2.pose.position.y - p1.pose.position.y,
                     p2.pose.position.x - p1.pose.position.x);
 }
-// std::vector<Point> simplifyPath(const Path& path) {
-//   const double eps = 0.0001;
-//   std::vector<Point> pointsExtracted;
-//   std::transform(path.poses.begin(), path.poses.end(), pointsExtracted.begin(),
-//                  [](const PoseStamped& x) { return x.pose.position; });
-
-//   std::vector<Point> result = {pointsExtracted[0]};
-//   double currHeading = calculateSegmentAngle(pointsExtracted[0], pointsExtracted[1]);
-
-//   for (auto it = pointsExtracted.begin() + 1, it2 = it + 1; it2 != pointsExtracted.end();
-//        ++it, ++it2) {
-//     double newHeading = calculateSegmentAngle(*it, *it2);
-//     if (std::fabs(currHeading - newHeading) > eps) {
-//       currHeading = newHeading;
-//       result.push_back(*it2);
-//     }
-//   }
-//   return result;
-// }
 
 Path simplifyPath(const Path& path) {
   const double eps = 0.0001;
@@ -94,9 +75,10 @@ void trimPath(Path& plan, PoseStamped base_pose, double distTreshold) {
   plan.poses.erase(last_point, plan.poses.end());
 }
 
-double shortest_angle_diff(double goal, double current) {
-  double d = std::remainder(goal - current, 2.0 * M_PI);
-  return d;
-}
-
 double easeOutCubic(double x) { return 1 - pow(1 - x, 3); }
+
+double calculateRotationDiff(const PoseStamped& p1, const PoseStamped& p2) {
+  double yaw1 = tf2::getYaw(p1.pose.orientation);
+  double yaw2 = tf2::getYaw(p2.pose.orientation);
+  return yaw1 - yaw2;
+}
