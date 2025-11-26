@@ -116,12 +116,11 @@ geometry_msgs::msg::TwistStamped ElkapodStraightController::computeVelocityComma
       int dist = static_cast<int>(found_it - closePointIter);
       frac = dist / 10.0;
       frac = std::max(frac, 0.2);
-      
-    }
+        }
     cmd_vel.twist.linear.set__x(frac * max_linear_vel);
   } else {
-    double angularVelocity = signbit(rotationDiff) * max_angular_vel_;
-    double frac = (abs(rotationDiff) > 1.0) ? 1.0 : easeOutCubic(rotationDiff);
+    double angularVelocity = copysign(1.0, rotationDiff) * max_angular_vel_;
+    double frac = (abs(rotationDiff) > 1.0) ? 1.0 : easeOutCubic(abs(rotationDiff));
     cmd_vel.twist.angular.set__z(frac * angularVelocity);
   }
   cmd_vel.header.frame_id = pose.header.frame_id;
