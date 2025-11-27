@@ -10,12 +10,6 @@
 #include "nav2_core/planner_exceptions.hpp"
 #include "nav2_util/geometry_utils.hpp"
 #include "nav2_util/node_utils.hpp"
-using nav2_util::declare_parameter_if_not_declared;
-using nav2_util::geometry_utils::euclidean_distance;
-using std::abs;
-using std::hypot;
-using std::max;
-using std::min;
 
 namespace elkapod_straight_controller {
 
@@ -33,14 +27,14 @@ void ElkapodStraightController::configure(
   logger_ = node->get_logger();
   clock_ = node->get_clock();
 
-  declare_parameter_if_not_declared(node, plugin_name_ + ".max_linear_vel",
-                                    rclcpp::ParameterValue(0.2));
-  declare_parameter_if_not_declared(node, plugin_name_ + ".lookahead_dist",
-                                    rclcpp::ParameterValue(0.5));
-  declare_parameter_if_not_declared(node, plugin_name_ + ".max_angular_vel",
-                                    rclcpp::ParameterValue(1.0));
-  declare_parameter_if_not_declared(node, plugin_name_ + ".transform_tolerance",
-                                    rclcpp::ParameterValue(0.1));
+  nav2_util::declare_parameter_if_not_declared(node, plugin_name_ + ".max_linear_vel",
+                                               rclcpp::ParameterValue(0.2));
+  nav2_util::declare_parameter_if_not_declared(node, plugin_name_ + ".lookahead_dist",
+                                               rclcpp::ParameterValue(0.5));
+  nav2_util::declare_parameter_if_not_declared(node, plugin_name_ + ".max_angular_vel",
+                                               rclcpp::ParameterValue(1.0));
+  nav2_util::declare_parameter_if_not_declared(node, plugin_name_ + ".transform_tolerance",
+                                               rclcpp::ParameterValue(0.1));
 
   node->get_parameter(plugin_name_ + ".max_linear_vel", max_linear_vel);
   node->get_parameter(plugin_name_ + ".lookahead_dist", lookahead_dist_);
@@ -90,6 +84,7 @@ geometry_msgs::msg::TwistStamped ElkapodStraightController::computeVelocityComma
     const geometry_msgs::msg::PoseStamped& pose, const geometry_msgs::msg::Twist& velocity,
     nav2_core::GoalChecker* goal_checker) {
   const double eps = 0.05;
+  // This magic number should have been moved as a parameter, but lazy
   const size_t n = 10;
   (void)velocity;
   (void)goal_checker;
@@ -101,26 +96,23 @@ geometry_msgs::msg::TwistStamped ElkapodStraightController::computeVelocityComma
                                  nav2_util::geometry_utils::euclidean_distance(b, pose);
                         }));
   const PoseStamped closestPoint = *closePointIter;
-  // double closestPointYaw = tf2::getYaw(closestPoint.pose.orientation);
-  // double robotYaw = tf2::getYaw(pose.pose.orientation);
-  // double rotationDiff = closestPointYaw - robotYaw;
   double rotationDiff = calculateRotationDiff(closestPoint, pose);
-  if (abs(rotationDiff) < eps) {
+  if (std::abs(rotationDiff) < eps) {
     double frac = 1;
     auto remaining = static_cast<size_t>(global_plan_.poses.end() - closePointIter);
     auto end_it = std::next(closePointIter, std::min(n, remaining));
     auto found_it = std::find_if(closePointIter, end_it, [&](const auto& x) {
-      return abs(calculateRotationDiff(x, pose)) >= eps;
+      return std::abs(calculateRotationDiff(x, pose)) >= eps;
     });
     if (found_it != end_it) {
       int dist = static_cast<int>(found_it - closePointIter);
       frac = dist / 10.0;
       frac = std::max(frac, 0.2);
-        }
+    }
     cmd_vel.twist.linear.set__x(frac * max_linear_vel);
   } else {
     double angularVelocity = copysign(1.0, rotationDiff) * max_angular_vel_;
-    double frac = (abs(rotationDiff) > 1.0) ? 1.0 : easeOutCubic(abs(rotationDiff));
+    double frac = (std::abs(rotationDiff) > 1.0) ? 1.0 : easeOutCubic(std::abs(rotationDiff));
     cmd_vel.twist.angular.set__z(frac * angularVelocity);
   }
   cmd_vel.header.frame_id = pose.header.frame_id;
@@ -140,6 +132,7 @@ void ElkapodStraightController::setPlan(const nav_msgs::msg::Path& path) {
   global_pub_->publish(global_plan_);
 }
 
+// Changes path byt removing all elements past first with distance greater than lookahead_dist_
 void ElkapodStraightController::shortenPath(nav_msgs::msg::Path& path,
                                             const PoseStamped& base_pose) {
   auto last_point =
@@ -150,6 +143,8 @@ void ElkapodStraightController::shortenPath(nav_msgs::msg::Path& path,
 
   path.poses.erase(last_point, path.poses.end());
 }
+
+// Changes path so all poses also have orientation with x axis pointing to the next pose on the path
 void ElkapodStraightController::updateOrientationPath(nav_msgs::msg::Path& path) {
   for (auto it1 = path.poses.begin(), it2 = it1 + 1; it2 != path.poses.end(); ++it1, ++it2) {
     double yawRequired = calculateSegmentAngle(*it1, *it2);

@@ -54,7 +54,6 @@ class ElkapodStraightController : public nav2_core::Controller {
   rclcpp::Duration transform_tolerance_{0, 0};
   ControllerState state_;
   nav_msgs::msg::Path global_plan_;
-  // nav_msgs::msg::Path simple_plan_;
 
   std::shared_ptr<rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Path>> global_pub_;
   std::shared_ptr<rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Path>> simple_plan_pub_;
