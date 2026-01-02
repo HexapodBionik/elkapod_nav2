@@ -1,14 +1,17 @@
 from launch import LaunchDescription, LaunchContext
-from launch.actions import DeclareLaunchArgument, OpaqueFunction
+from launch.actions import DeclareLaunchArgument, OpaqueFunction, IncludeLaunchDescription
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 from launch.conditions import IfCondition
+from launch.launch_description_sources import PythonLaunchDescriptionSource
 from ament_index_python.packages import get_package_share_directory
 import datetime
 import os
 
 
 def launch_setup(context: LaunchContext, *args, **kwargs):
+    namespace = 'perception'
+    
     elkapod_slam_dir = get_package_share_directory('elkapod_slam')
 
     database_name = LaunchConfiguration('rtab_db').perform(context)
@@ -122,7 +125,8 @@ def launch_setup(context: LaunchContext, *args, **kwargs):
                          # This will make the node subscribing to icp odometry topic "icp_odom"
                          'fixed_frame_id': (external_odom_frame_id if external_odom_frame_id else "")}],
             remappings=[('cloud', lidar_topic),
-                        ('odom', 'icp_odom')]),
+                        ('odom', 'icp_odom')],
+            namespace=namespace),
 
         # Update the map
         Node(
@@ -136,7 +140,8 @@ def launch_setup(context: LaunchContext, *args, **kwargs):
                          "database_path": f'/elkapod_sim_ws/data/{database_file_name}', }],
             remappings=remappings +
             [('scan_cloud', 'assembled_cloud')],
-            arguments=arguments),
+            arguments=arguments,
+            namespace=namespace),
 
         # Just for visualization
         Node(
@@ -144,13 +149,15 @@ def launch_setup(context: LaunchContext, *args, **kwargs):
             parameters=[shared_parameters, rtabmap_parameters,
                         {'config_path': rtabmap_config_path, }],
             condition=IfCondition(LaunchConfiguration('use_rtabmap_viz')),
-            remappings=remappings + [('scan_cloud', viz_topic)]),
+            remappings=remappings + [('scan_cloud', viz_topic)],
+            namespace=namespace),
 
         Node(
             package='rtabmap_odom', executable='icp_odometry', output='screen',
             parameters=[shared_parameters, icp_odometry_parameters,
                         {'config_path': rtabmap_config_path, }],
-            remappings=remappings + [('scan_cloud', lidar_topic)]),
+            remappings=remappings + [('scan_cloud', lidar_topic)],
+            namespace=namespace),
 
         Node(
             package='rtabmap_util', executable='imu_to_tf', output='screen',
@@ -159,10 +166,19 @@ def launch_setup(context: LaunchContext, *args, **kwargs):
                          'fixed_frame_id': fixed_frame_id,
                          'base_frame_id': frame_id,
                          'wait_for_transform_duration': 0.001}],
-            remappings=[('imu/data', imu_topic)])
+            remappings=[('imu/data', imu_topic)],
+            namespace=namespace)
     ]
+    odom_fusion = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource([os.path.join(
+            elkapod_slam_dir, 'launch', 'elkapod_odom_fusion.launch.py'
+        )]),
+        launch_arguments={'namespace':namespace}.items()
+    )
 
-    return nodes
+    return [*nodes, odom_fusion]
+    # return [*nodes]
+
 
 
 def generate_launch_description():
