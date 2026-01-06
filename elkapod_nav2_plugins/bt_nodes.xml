@@ -1,0 +1,5 @@
+<library path="elkapod_bt_nodes">
+  <class name="GetPoseFromPath" type="nav2_behavior_tree::GetPoseFromPath" base_class_type="BT::TreeNode">
+    <description>Extracts a pose X meters down the path.</description>
+  </class>
+</library>
