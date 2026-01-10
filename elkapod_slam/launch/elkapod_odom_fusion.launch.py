@@ -30,10 +30,6 @@ def generate_launch_description():
         parameters=[odom_config, {'use_sim_time': use_sim_time}],
         output='screen',
         emulate_tty=True,
-        remappings=[
-        ('/tf', '/tf_junk'),
-        ('/tf_static', '/tf_static_junk')
-    ]
     )
 
     ekf_node = Node(

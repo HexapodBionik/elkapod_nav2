@@ -176,8 +176,8 @@ def launch_setup(context: LaunchContext, *args, **kwargs):
         launch_arguments={'namespace':namespace}.items()
     )
 
-    return [*nodes, odom_fusion]
-    # return [*nodes]
+    # return [*nodes, odom_fusion]
+    return [*nodes]
 
 
 
