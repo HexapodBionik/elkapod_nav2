@@ -27,7 +27,7 @@ navigation/controller_server:
     min_y_velocity_threshold: 0.5
     min_theta_velocity_threshold: 0.05
     failure_tolerance: 0.3
-    odom_topic: "/icp_odom"
+    odom_topic: "/perception/icp_odom"
     odom_duration: 0.3
     progress_checker_plugins: ["progress_checker"] # progress_checker_plugin: "progress_checker" For Humble and older
     goal_checker_plugins: ["goal_checker"] # goal_checker_plugin: "goal_checker" For Galactic and older
@@ -154,7 +154,7 @@ navigation/bt_navigator:
     use_sim_time: true
     global_frame: map
     robot_base_frame: base_link
-    odom_topic: /icp_odom
+    odom_topic: /perception/icp_odom
     bt_loop_duration: 10
     filter_duration: 0.3
     default_server_timeout: 20
@@ -214,7 +214,7 @@ navigation/global_costmap:
         enabled: true
         subscribe_to_updates: true
         transform_tolerance: 0.1
-        map_topic: /map
+        map_topic: /perception/map
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         enabled: true
@@ -244,7 +244,7 @@ navigation/local_costmap:
         enabled: true
         subscribe_to_updates: true
         transform_tolerance: 0.1
-        map_topic: /map
+        map_topic: /perception/map
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         enabled: true
