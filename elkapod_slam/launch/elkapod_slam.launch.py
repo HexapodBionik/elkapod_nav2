@@ -74,7 +74,7 @@ def launch_setup(context: LaunchContext, *args, **kwargs):
     icp_odometry_parameters = {
         'expected_update_rate': LaunchConfiguration('expected_update_rate'),
         'wait_imu_to_init': True,
-        'odom_frame_id': 'odom',
+        'guess_frame_id': '',
         'guess_frame_id': fixed_frame_id,
         'publish_tf': False
     }
@@ -151,22 +151,25 @@ def launch_setup(context: LaunchContext, *args, **kwargs):
             remappings=remappings + [('scan_cloud', lidar_topic)],
             namespace=namespace),
 
-        Node(
-            package='rtabmap_util', executable='imu_to_tf', output='screen',
-            parameters=[{'config_path': rtabmap_config_path,
-                         'use_sim_time': use_sim_time,
-                         'fixed_frame_id': fixed_frame_id,
-                         'base_frame_id': frame_id,
-                         'wait_for_transform_duration': 0.001,
-                         'publish_tf':False}],
-            remappings=[('imu/data', imu_topic)],
-            namespace=namespace)
+        # Node(
+        #     package='rtabmap_util', executable='imu_to_tf', output='screen',
+        #     parameters=[{'config_path': rtabmap_config_path,
+        #                  'use_sim_time': use_sim_time,
+        #                  'fixed_frame_id': fixed_frame_id,
+        #                  'base_frame_id': frame_id,
+        #                  'wait_for_transform_duration': 0.001,
+        #                  'publish_tf':False}],
+        #     remappings=[('imu/data', imu_topic)],
+        #     namespace=namespace)
     ]
     odom_fusion = IncludeLaunchDescription(
         PythonLaunchDescriptionSource([os.path.join(
             elkapod_slam_dir, 'launch', 'elkapod_odom_fusion.launch.py'
         )]),
-        launch_arguments={'namespace':namespace}.items()
+        launch_arguments={
+            'namespace': namespace,
+            'use_sim_time': use_sim_time # <--- ADD THIS
+            }.items()
     )
 
     return [*nodes, odom_fusion]

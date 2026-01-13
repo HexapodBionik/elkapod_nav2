@@ -41,7 +41,9 @@ def generate_launch_description():
         executable="ekf_node",
         parameters=[ekf_config, {'use_sim_time': use_sim_time, 'publish_tf': False}],
         output='screen',
-        emulate_tty=True
+        emulate_tty=True,
+        # remappings=[('/tf', '/tf_garbage'),          # <--- SILENCE THIS
+        # ('/tf_static', '/tf_static_garbage')]
     )
 
     final_ekf_config = os.path.join(
