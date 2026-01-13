@@ -1,7 +1,7 @@
 perception/fusion_ekf:
     ros__parameters:
         print_diagnostics: true
-        debug: false
+        debug: true
         use_sim_time: true
 
         frequency: 30.0

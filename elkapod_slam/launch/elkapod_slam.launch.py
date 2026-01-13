@@ -21,7 +21,7 @@ def launch_setup(context: LaunchContext, *args, **kwargs):
         database_file_name = database_name if database_name.endswith(
             ".db") else database_name + '.db'
 
-    # print(f"Using {database_file_name}")
+
 
     rtabmap_config_path = os.path.join(
         elkapod_slam_dir,
@@ -63,24 +63,20 @@ def launch_setup(context: LaunchContext, *args, **kwargs):
     localization = LaunchConfiguration('localization').perform(context)
     localization = localization == 'true' or localization == 'True'
 
-    # Rule of thumb:
-    max_correspondence_distance = voxel_size_value * 10.0
-
     shared_parameters = {
         'use_sim_time': use_sim_time,
         'frame_id': frame_id,
         'qos': LaunchConfiguration('qos'),
         'approx_sync': rgbd_image_used,
         'wait_for_transform': 0.2,
-        # RTAB-Map's internal parameters are strings:
     }
 
     icp_odometry_parameters = {
         'expected_update_rate': LaunchConfiguration('expected_update_rate'),
         'wait_imu_to_init': True,
-        'odom_frame_id': 'icp_odom',
+        'odom_frame_id': 'odom',
         'guess_frame_id': fixed_frame_id,
-        # RTAB-Map's internal parameters are strings:
+        'publish_tf': False
     }
 
     rtabmap_parameters = {
@@ -89,7 +85,6 @@ def launch_setup(context: LaunchContext, *args, **kwargs):
         'subscribe_odom_info': not external_odom_frame_id,
         'subscribe_scan_cloud': True,
         'odom_frame_id': (external_odom_frame_id if external_odom_frame_id else ""),
-        # This will adjust camera position based on difference between lidar and camera stamps.
         'odom_sensor_sync': True,
     }
 
@@ -116,7 +111,6 @@ def launch_setup(context: LaunchContext, *args, **kwargs):
         viz_topic = 'odom_filtered_input_scan'
 
     nodes = [
-        # Assemble deskewed scans based on icp odometry
         Node(
             package='rtabmap_util', executable='point_cloud_assembler', output='screen',
             parameters=[{'config_path': rtabmap_config_path,
@@ -128,7 +122,6 @@ def launch_setup(context: LaunchContext, *args, **kwargs):
                         ('odom', 'icp_odom')],
             namespace=namespace),
 
-        # Update the map
         Node(
             package='rtabmap_slam', executable='rtabmap', output='screen',
             parameters=[shared_parameters, rtabmap_parameters,
@@ -143,7 +136,6 @@ def launch_setup(context: LaunchContext, *args, **kwargs):
             arguments=arguments,
             namespace=namespace),
 
-        # Just for visualization
         Node(
             package='rtabmap_viz', executable='rtabmap_viz', output='screen',
             parameters=[shared_parameters, rtabmap_parameters,
@@ -165,7 +157,8 @@ def launch_setup(context: LaunchContext, *args, **kwargs):
                          'use_sim_time': use_sim_time,
                          'fixed_frame_id': fixed_frame_id,
                          'base_frame_id': frame_id,
-                         'wait_for_transform_duration': 0.001}],
+                         'wait_for_transform_duration': 0.001,
+                         'publish_tf':False}],
             remappings=[('imu/data', imu_topic)],
             namespace=namespace)
     ]
@@ -176,8 +169,8 @@ def launch_setup(context: LaunchContext, *args, **kwargs):
         launch_arguments={'namespace':namespace}.items()
     )
 
-    # return [*nodes, odom_fusion]
-    return [*nodes]
+    return [*nodes, odom_fusion]
+    # return [*nodes]
 
 
 
@@ -197,7 +190,7 @@ def generate_launch_description():
             description='Fixed frame used for lidar deskewing. If not set, we will generate one from IMU or external_odom_frame_id if not null.'),
 
         DeclareLaunchArgument(
-            'external_odom_frame_id', default_value='',
+            'external_odom_frame_id', default_value='odom',
             description='Provide external odometry with TF, disabling icp_odometry.'),
 
         DeclareLaunchArgument(
@@ -229,7 +222,7 @@ def generate_launch_description():
             description='Minimum scan overlap pourcentage to accept a loop closure.'),
 
         DeclareLaunchArgument(
-            'expected_update_rate', default_value='10.0',
+            'expected_update_rate', default_value='15.0',
             description='Expected lidar frame rate. Ideally, set it slightly higher than actual frame rate, like 15 Hz for 10 Hz lidar scans.'),
 
         DeclareLaunchArgument(

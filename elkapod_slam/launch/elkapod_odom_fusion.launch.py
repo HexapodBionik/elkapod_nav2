@@ -30,12 +30,16 @@ def generate_launch_description():
         parameters=[odom_config, {'use_sim_time': use_sim_time}],
         output='screen',
         emulate_tty=True,
+        remappings=[
+        ('/tf', '/tf_disabled'),
+        ('/tf_static', '/tf_static_disabled'),
+    ]
     )
 
     ekf_node = Node(
         package="robot_localization",
         executable="ekf_node",
-        parameters=[ekf_config, {'use_sim_time': use_sim_time}],
+        parameters=[ekf_config, {'use_sim_time': use_sim_time, 'publish_tf': False}],
         output='screen',
         emulate_tty=True
     )
@@ -46,6 +50,14 @@ def generate_launch_description():
         'ekf.yaml'
     )
 
+    tf_broadcaster_node = Node(
+        package='elkapod_slam',
+        executable='footprint_tf_publisher',
+        output='screen',
+        emulate_tty=True,
+        parameters=[{'use_sim_time': use_sim_time}]
+
+    )
     final_ekf_node = Node(
             package="robot_localization",
             executable="ekf_node",
@@ -63,5 +75,6 @@ def generate_launch_description():
         relay_node,
         odom_node,
         ekf_node,
-        final_ekf_node
+        final_ekf_node,
+        tf_broadcaster_node
     ])
