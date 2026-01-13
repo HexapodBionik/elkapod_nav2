@@ -176,8 +176,8 @@ def launch_setup(context: LaunchContext, *args, **kwargs):
         launch_arguments={'namespace':namespace}.items()
     )
 
-    # return [*nodes, odom_fusion]
-    return [*nodes]
+    return [*nodes, odom_fusion]
+    # return [*nodes]
 
 
 
@@ -229,7 +229,7 @@ def generate_launch_description():
             description='Minimum scan overlap pourcentage to accept a loop closure.'),
 
         DeclareLaunchArgument(
-            'expected_update_rate', default_value='10.0',
+            'expected_update_rate', default_value='15.0',
             description='Expected lidar frame rate. Ideally, set it slightly higher than actual frame rate, like 15 Hz for 10 Hz lidar scans.'),
 
         DeclareLaunchArgument(
