@@ -78,8 +78,8 @@ def launch_setup(context: LaunchContext, *args, **kwargs):
     icp_odometry_parameters = {
         'expected_update_rate': LaunchConfiguration('expected_update_rate'),
         'wait_imu_to_init': True,
-        'odom_frame_id': 'icp_odom',
-        'guess_frame_id': fixed_frame_id,
+        'odom_frame_id': 'odom',
+        'guess_frame_id': 'odom',
         # RTAB-Map's internal parameters are strings:
     }
 
@@ -88,7 +88,7 @@ def launch_setup(context: LaunchContext, *args, **kwargs):
         'subscribe_rgb': False,
         'subscribe_odom_info': not external_odom_frame_id,
         'subscribe_scan_cloud': True,
-        'odom_frame_id': (external_odom_frame_id if external_odom_frame_id else ""),
+        'odom_frame_id': "odom",
         # This will adjust camera position based on difference between lidar and camera stamps.
         'odom_sensor_sync': True,
     }
@@ -137,9 +137,11 @@ def launch_setup(context: LaunchContext, *args, **kwargs):
                          'rgbd_cameras': rgbd_cameras,
                          'topic_queue_size': 40,
                          'sync_queue_size': 40,
-                         "database_path": f'/elkapod_sim_ws/data/{database_file_name}', }],
-            remappings=remappings +
-            [('scan_cloud', 'assembled_cloud')],
+                        #  'odom': 'odometry/filtered',
+                         'database_path': f'/elkapod_sim_ws/data/{database_file_name}', }],
+            remappings=[('imu', imu_topic),
+                    ('odom', '/odometry/filtered'),
+                    ('scan_cloud', 'assembled_cloud')],
             arguments=arguments,
             namespace=namespace),
 
@@ -155,30 +157,37 @@ def launch_setup(context: LaunchContext, *args, **kwargs):
         Node(
             package='rtabmap_odom', executable='icp_odometry', output='screen',
             parameters=[shared_parameters, icp_odometry_parameters,
-                        {'config_path': rtabmap_config_path, }],
-            remappings=remappings + [('scan_cloud', lidar_topic)],
+                        {'config_path': rtabmap_config_path, 
+                         'publish_tf': False
+                        }],
+            remappings= [('imu', imu_topic),
+                         ('odom', 'icp_odom'),
+                         ('scan_cloud', lidar_topic)],
             arguments=['--ros-args', '--log-level', 'warn'], # <--- ADD THIS LINE
             namespace=namespace),
 
-        Node(
-            package='rtabmap_util', executable='imu_to_tf', output='screen',
-            parameters=[{'config_path': rtabmap_config_path,
-                         'use_sim_time': use_sim_time,
-                         'fixed_frame_id': fixed_frame_id,
-                         'base_frame_id': frame_id,
-                         'wait_for_transform_duration': 0.001}],
-            remappings=[('imu/data', imu_topic)],
-            namespace=namespace)
+        # Node(
+        #     package='rtabmap_util', executable='imu_to_tf', output='screen',
+        #     parameters=[{'config_path': rtabmap_config_path,
+        #                  'use_sim_time': use_sim_time,
+        #                  'fixed_frame_id': fixed_frame_id,
+        #                  'base_frame_id': frame_id,
+        #                  'wait_for_transform_duration': 0.001}],
+        #     remappings=[('imu/data', imu_topic)],
+        #     namespace=namespace)
     ]
     odom_fusion = IncludeLaunchDescription(
         PythonLaunchDescriptionSource([os.path.join(
             elkapod_slam_dir, 'launch', 'elkapod_odom_fusion.launch.py'
         )]),
-        launch_arguments={'namespace':namespace}.items()
-    )
+        launch_arguments={
+        'namespace': namespace,
+        'sim_mode': use_sim_time}.items()
+        )
+    
 
-    # return [*nodes, odom_fusion]
-    return [*nodes]
+    return [*nodes, odom_fusion]
+    # return [*nodes]
 
 
 
