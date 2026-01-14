@@ -5,17 +5,9 @@ navigation/planner_server:
     introspection_mode: "disabled"
     planner_plugins: ["GridBased"]
     GridBased:
-      plugin: "nav2_theta_star_planner::ThetaStarPlanner" # In Iron and older versions, "/" was used instead of "::"
+      plugin: "nav2_theta_star_planner::ThetaStarPlanner"
       how_many_corners: 8
-
-      # Weight applied on the length of the path.
       w_euc_cost: 5.0
-
-      # It tunes how harshly the nodes of high cost are penalised.
-      # From the above g(neigh) equation you can see that the cost-aware component of the cost function forms a parabolic curve,
-      # thus this parameter would, on increasing its value,
-      # make that curve steeper allowing for a greater differentiation (as the delta of costs would increase,
-      # when the graph becomes steep) among the nodes of different costs.
       w_traversal_cost: 10.0
       allow_unknown: True
 
@@ -49,106 +41,6 @@ navigation/controller_server:
       lookahead_dist: 2.0
       transform_tolerance: 1.0
 
-    # FollowPath:
-    #   plugin: "nav2_mppi_controller::MPPIController"
-    #   time_steps: 56
-    #   model_dt: 0.05
-    #   batch_size: 2000
-    #   ax_max: 3.0
-    #   ax_min: -3.0
-    #   ay_max: 3.0
-    #   ay_min: -3.0
-    #   az_max: 3.5
-    #   vx_std: 0.2
-    #   vy_std: 0.2
-    #   wz_std: 0.4
-    #   vx_max: 0.5
-    #   vx_min: -0.35
-    #   vy_max: 0.5
-    #   wz_max: 1.9
-    #   iteration_count: 1
-    #   prune_distance: 1.7
-    #   transform_tolerance: 0.1
-    #   temperature: 0.3
-    #   gamma: 0.015
-    #   motion_model: "DiffDrive"
-    #   visualize: true
-    #   publish_optimal_trajectory: true
-    #   regenerate_noises: true
-    #   TrajectoryVisualizer:
-    #     trajectory_step: 5
-    #     time_step: 3
-    #   TrajectoryValidator:
-    #     # The validator can be configured with additional parameters if needed.
-    #     plugin: "mppi::DefaultOptimalTrajectoryValidator"
-    #     collision_lookahead_time: 2.0 # Time to look ahead to check for collisions
-    #     consider_footprint: false # Whether to consider the full robot's footprint (or circle) in trajectory validation collision checks
-    #   AckermannConstraints:
-    #     min_turning_r: 0.2
-    #   critics:
-    #     [
-    #       "ConstraintCritic",
-    #       "CostCritic",
-    #       "GoalCritic",
-    #       "GoalAngleCritic",
-    #       "PathAlignCritic",
-    #       "PathFollowCritic",
-    #       "PathAngleCritic",
-    #       "PreferForwardCritic",
-    #     ]
-    #   ConstraintCritic:
-    #     enabled: true
-    #     cost_power: 1
-    #     cost_weight: 4.0
-    #   GoalCritic:
-    #     enabled: true
-    #     cost_power: 1
-    #     cost_weight: 5.0
-    #     threshold_to_consider: 1.4
-    #   GoalAngleCritic:
-    #     enabled: true
-    #     cost_power: 1
-    #     cost_weight: 3.0
-    #     threshold_to_consider: 0.5
-    #   PreferForwardCritic:
-    #     enabled: true
-    #     cost_power: 1
-    #     cost_weight: 5.0
-    #     threshold_to_consider: 0.5
-    #   CostCritic:
-    #     enabled: true
-    #     cost_power: 1
-    #     cost_weight: 3.81
-    #     near_collision_cost: 253
-    #     critical_cost: 300.0
-    #     consider_footprint: false
-    #     collision_cost: 1000000.0
-    #     near_goal_distance: 1.0
-    #     trajectory_point_step: 2
-    #   PathAlignCritic:
-    #     enabled: true
-    #     cost_power: 1
-    #     cost_weight: 14.0
-    #     max_path_occupancy_ratio: 0.05
-    #     trajectory_point_step: 4
-    #     threshold_to_consider: 0.5
-    #     offset_from_furthest: 20
-    #     use_path_orientations: false
-    #   PathFollowCritic:
-    #     enabled: true
-    #     cost_power: 1
-    #     cost_weight: 5.0
-    #     offset_from_furthest: 5
-    #     threshold_to_consider: 1.4
-    #   PathAngleCritic:
-    #     enabled: true
-    #     cost_power: 1
-    #     cost_weight: 2.0
-    #     offset_from_furthest: 4
-    #     threshold_to_consider: 0.5
-    #     max_angle_to_furthest: 1.0
-    #     mode: 0
-
 navigation/bt_navigator:
   ros__parameters:
     use_sim_time: true
@@ -171,30 +63,6 @@ navigation/bt_navigator:
       groot_server_port: 1669
     bt_search_directories:
       - $(find-pkg-share nav2_bt_navigator)/behavior_trees
-    # 'default_nav_through_poses_bt_xml' and 'default_nav_to_pose_bt_xml' are use defaults:
-    # nav2_bt_navigator/navigate_to_pose_w_replanning_and_recovery.xml
-    # nav2_bt_navigator/navigate_through_poses_w_replanning_and_recovery.xml
-    # They can be set here or via a RewrittenYaml remap from a parent launch file to Nav2.
-
-    # plugin_lib_names is used to add custom BT plugins to the executor (vector of strings).
-    # Built-in plugins are added automatically
-    # plugin_lib_names: []
-
-    # error_code_name_prefixes:
-    #   - assisted_teleop
-    #   - backup
-    #   - compute_path
-    #   - dock_robot
-    #   - drive_on_heading
-    #   - follow_object
-    #   - follow_path
-    #   - nav_thru_poses
-    #   - nav_to_pose
-    #   - route
-    #   - spin
-    #   - smoother
-    #   - undock_robot
-    #   - wait
 
 navigation/global_costmap:
   global_costmap:
@@ -237,7 +105,9 @@ navigation/local_costmap:
       height: 5
       resolution: 0.05
 
-      plugins: ["static_layer", "inflation_layer"]
+      # Added voxel_layer to the plugins list
+      plugins: ["static_layer", "voxel_layer", "inflation_layer"]
+
       static_layer:
         plugin: "nav2_costmap_2d::StaticLayer"
         map_subscribe_transient_local: True
@@ -245,6 +115,38 @@ navigation/local_costmap:
         subscribe_to_updates: true
         transform_tolerance: 0.1
         map_topic: /perception/map
+
+      # STVL Configuration
+      voxel_layer:
+        plugin: "spatio_temporal_voxel_layer/SpatioTemporalVoxelLayer"
+        enabled: true
+        publish_voxel_map: true
+        voxel_decay: 15.0       # Seconds before voxels expire
+        area_passage_threshold: 0.04
+        mark_threshold: 0
+        update_footprint_enabled: true
+        # Map parameters
+        origin_z: 0.0
+        map_save_duration: 60.0
+        vertical_bins: 32
+        sensor_frame: base_link  # Usually base_link or lidar_link
+        # Observation Sources
+        observation_sources: lidar_source
+        lidar_source:
+          topic: /lidar_data_points
+          sensor_frame: lidar_optical 
+          observation_persistence: 0.0
+          expected_update_rate: 0.0
+          data_type: PointCloud2
+          min_obstacle_height: 0.1
+          max_obstacle_height: 2.0
+          marking: true
+          clearing: true
+          obstacle_max_range: 2.5
+          obstacle_min_range: 0.4
+          raytrace_max_range: 3.0
+          raytrace_min_range: 0.0
+
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         enabled: true
@@ -252,6 +154,7 @@ navigation/local_costmap:
         cost_scaling_factor: 1.0
         inflate_unknown: false
         inflate_around_unknown: false
+
       always_send_full_costmap: True
       introspection_mode: "disabled"
 

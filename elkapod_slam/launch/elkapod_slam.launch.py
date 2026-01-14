@@ -157,6 +157,7 @@ def launch_setup(context: LaunchContext, *args, **kwargs):
             parameters=[shared_parameters, icp_odometry_parameters,
                         {'config_path': rtabmap_config_path, }],
             remappings=remappings + [('scan_cloud', lidar_topic)],
+            arguments=['--ros-args', '--log-level', 'warn'], # <--- ADD THIS LINE
             namespace=namespace),
 
         Node(
@@ -176,8 +177,8 @@ def launch_setup(context: LaunchContext, *args, **kwargs):
         launch_arguments={'namespace':namespace}.items()
     )
 
-    return [*nodes, odom_fusion]
-    # return [*nodes]
+    # return [*nodes, odom_fusion]
+    return [*nodes]
 
 
 
