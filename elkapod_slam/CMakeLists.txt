@@ -7,9 +7,24 @@ endif()
 
 # find dependencies
 find_package(ament_cmake REQUIRED)
-# uncomment the following section in order to fill in
-# further dependencies manually.
-# find_package(<dependency> REQUIRED)
+find_package(tf2 REQUIRED)
+find_package(tf2_ros REQUIRED)
+find_package(rclcpp REQUIRED)
+
+include_directories(include)
+
+add_executable(footprint_tf_publisher src/footprint_tf_publisher.cpp)
+
+ament_target_dependencies(
+    footprint_tf_publisher
+    rclcpp
+    tf2
+    tf2_ros
+)
+
+install(TARGETS
+    footprint_tf_publisher
+    DESTINATION lib/${PROJECT_NAME})
 
 install(DIRECTORY config launch
 DESTINATION share/${PROJECT_NAME}

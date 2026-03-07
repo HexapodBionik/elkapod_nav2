@@ -1,5 +1,5 @@
-#ifndef NAV2_PURE_PURSUIT_CONTROLLER__PURE_PURSUIT_CONTROLLER_HPP_
-#define NAV2_PURE_PURSUIT_CONTROLLER__PURE_PURSUIT_CONTROLLER_HPP_
+#ifndef ELKAPOD_STRAIGHT_CONTROLLER_HPP_
+#define ELKAPOD_STRAIGHT_CONTROLLER_HPP_
 
 #include <memory>
 #include <string>
@@ -9,6 +9,7 @@
 #include "pluginlib/class_list_macros.hpp"
 #include "pluginlib/class_loader.hpp"
 #include "rclcpp/rclcpp.hpp"
+#include "std_msgs/msg/float64.hpp"
 
 namespace elkapod_straight_controller {
 enum ControllerState { ROTATION, LINEAR };
@@ -54,9 +55,13 @@ class ElkapodStraightController : public nav2_core::Controller {
   rclcpp::Duration transform_tolerance_{0, 0};
   ControllerState state_;
   nav_msgs::msg::Path global_plan_;
+  nav_msgs::msg::Path shorten_plan_;
+
 
   std::shared_ptr<rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Path>> global_pub_;
   std::shared_ptr<rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Path>> simple_plan_pub_;
+  std::shared_ptr<rclcpp_lifecycle::LifecyclePublisher<std_msgs::msg::Float64>> distance_left_pub_;
+
 };
 
 }  // namespace elkapod_straight_controller

@@ -45,6 +45,7 @@ void ElkapodStraightController::configure(
   state_ = ROTATION;
   global_pub_ = node->create_publisher<nav_msgs::msg::Path>("received_global_plan", 1);
   simple_plan_pub_ = node->create_publisher<nav_msgs::msg::Path>("simplified_plan", 1);
+  distance_left_pub_ = node->create_publisher<std_msgs::msg::Float64>("distance_left",1 );
 }
 
 void ElkapodStraightController::cleanup() {
@@ -54,6 +55,7 @@ void ElkapodStraightController::cleanup() {
       plugin_name_.c_str());
   global_pub_.reset();
   simple_plan_pub_.reset();
+  distance_left_pub_.reset();
 }
 
 void ElkapodStraightController::activate() {
@@ -63,6 +65,7 @@ void ElkapodStraightController::activate() {
       plugin_name_.c_str(), plugin_name_.c_str());
   global_pub_->on_activate();
   simple_plan_pub_->on_activate();
+  distance_left_pub_->on_activate();
 }
 
 void ElkapodStraightController::deactivate() {
@@ -72,6 +75,7 @@ void ElkapodStraightController::deactivate() {
       plugin_name_.c_str(), plugin_name_.c_str());
   global_pub_->on_deactivate();
   simple_plan_pub_->on_deactivate();
+  distance_left_pub_->on_deactivate();
 }
 
 void ElkapodStraightController::setSpeedLimit(const double& speed_limit, const bool& percentage) {
@@ -83,23 +87,30 @@ void ElkapodStraightController::setSpeedLimit(const double& speed_limit, const b
 geometry_msgs::msg::TwistStamped ElkapodStraightController::computeVelocityCommands(
     const geometry_msgs::msg::PoseStamped& pose, const geometry_msgs::msg::Twist& velocity,
     nav2_core::GoalChecker* goal_checker) {
-  const double eps = 0.05;
+  const double eps = 0.1;
   // This magic number should have been moved as a parameter, but lazy
   const size_t n = 10;
   (void)velocity;
   (void)goal_checker;
   geometry_msgs::msg::TwistStamped cmd_vel;
   auto closePointIter =
-      (std::min_element(global_plan_.poses.begin(), global_plan_.poses.end(),
+      (std::min_element(shorten_plan_.poses.begin(), shorten_plan_.poses.end(),
                         [&](const PoseStamped& a, const PoseStamped& b) {
                           return nav2_util::geometry_utils::euclidean_distance(a, pose) <
                                  nav2_util::geometry_utils::euclidean_distance(b, pose);
                         }));
-  const PoseStamped closestPoint = *closePointIter;
+  
+  auto idx = closePointIter - shorten_plan_.poses.begin();
+  double distance_left = nav2_util::geometry_utils::calculate_path_length(global_plan_, idx);
+  std_msgs::msg::Float64 msg;
+  msg.data = distance_left;
+  distance_left_pub_->publish(msg);
+
+                        const PoseStamped closestPoint = *closePointIter;
   double rotationDiff = calculateRotationDiff(closestPoint, pose);
   if (std::abs(rotationDiff) < eps) {
     double frac = 1;
-    auto remaining = static_cast<size_t>(global_plan_.poses.end() - closePointIter);
+    auto remaining = static_cast<size_t>(shorten_plan_.poses.end() - closePointIter);
     auto end_it = std::next(closePointIter, std::min(n, remaining));
     auto found_it = std::find_if(closePointIter, end_it, [&](const auto& x) {
       return std::abs(calculateRotationDiff(x, pose)) >= eps;
@@ -107,13 +118,19 @@ geometry_msgs::msg::TwistStamped ElkapodStraightController::computeVelocityComma
     if (found_it != end_it) {
       int dist = static_cast<int>(found_it - closePointIter);
       frac = dist / 10.0;
-      frac = std::max(frac, 0.2);
+      frac = std::max(frac, 0.5);
     }
     cmd_vel.twist.linear.set__x(frac * max_linear_vel);
   } else {
-    double angularVelocity = copysign(1.0, rotationDiff) * max_angular_vel_;
-    double frac = (std::abs(rotationDiff) > 1.0) ? 1.0 : easeOutCubic(std::abs(rotationDiff));
-    cmd_vel.twist.angular.set__z(frac * angularVelocity);
+    double direction = copysign(1.0, rotationDiff); 
+
+    double abs_diff = std::abs(rotationDiff);
+    double frac = (abs_diff > 1.0) ? 1.0 : easeOutCubic(abs_diff);
+
+    frac = std::max(frac, 0.2); 
+
+    // Apply
+    cmd_vel.twist.angular.set__z(direction * frac * max_angular_vel_);
   }
   cmd_vel.header.frame_id = pose.header.frame_id;
   cmd_vel.header.stamp = clock_->now();
@@ -122,14 +139,15 @@ geometry_msgs::msg::TwistStamped ElkapodStraightController::computeVelocityComma
 
 void ElkapodStraightController::setPlan(const nav_msgs::msg::Path& path) {
   global_plan_ = path;
+  shorten_plan_ = path;
   PoseStamped robot_pose;
   nav2_util::getCurrentPose(robot_pose, *tf_);
-  shortenPath(global_plan_, robot_pose);
-  updateOrientationPath(global_plan_);
+  shortenPath(shorten_plan_, robot_pose);
+  updateOrientationPath(shorten_plan_);
 
   RCLCPP_INFO(logger_, "Original plan size %ld, trimmed plan size %ld", path.poses.size(),
-              global_plan_.poses.size());
-  global_pub_->publish(global_plan_);
+              shorten_plan_.poses.size());
+  global_pub_->publish(shorten_plan_);
 }
 
 // Changes path byt removing all elements past first with distance greater than lookahead_dist_

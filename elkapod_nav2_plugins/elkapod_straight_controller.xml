@@ -2,7 +2,7 @@
     <library path="elkapod_straight_controller">
         <class type="elkapod_straight_controller::ElkapodStraightController" base_class_type="nav2_core::Controller">
             <description>
-                nav2_pure_pursuit_controller
+                Elkapod straight following controller
             </description>
         </class>
     </library>

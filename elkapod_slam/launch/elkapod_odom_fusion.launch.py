@@ -8,35 +8,55 @@ import os
 
 
 def generate_launch_description():
-    use_sim_time = LaunchConfiguration('sim_mode')
+    use_sim_time = LaunchConfiguration('sim_mode', default=True)
 
     elkapod_slam_dir = get_package_share_directory('elkapod_slam')
-    ekf_config = os.path.join(
-        elkapod_slam_dir,
-        'config',
-        'ekf.yaml'
+    elkapod_odometry_dir = get_package_share_directory('elkapod_odometry')
+    ekf_config = os.path.join(elkapod_slam_dir, 'config', 'ekf_config.yaml')
+    odom_config = os.path.join(
+        elkapod_odometry_dir, 'config', 'elkapod_odometry_params.yaml')
+
+    relay_node = Node(
+        package="elkapod_odometry",
+        executable="elkapod_relay",
+        parameters=[{'use_sim_time': use_sim_time}],
+        output='screen',
+        emulate_tty=True
     )
 
-    leg_odometry_launch_path = os.path.join(
-        get_package_share_directory('elkapod_odometry'),
-        'launch',
-        'odom.launch.py'
+    odom_node = Node(
+        package="elkapod_odometry",
+        executable="elkapod_odom",
+        parameters=[odom_config, {'use_sim_time': use_sim_time}],
+        output='screen',
+        emulate_tty=True,
+        remappings=[
+            ('/tf', '/tf_garbage'),
+            ('/tf_static', '/tf_static_garbage')]
     )
 
+    ekf_node = Node(
+        package="robot_localization",
+        executable="ekf_node",
+        name='ekf_filter_node',
+        parameters=[ekf_config, {'use_sim_time': use_sim_time}],
+        output='screen',
+        emulate_tty=True
+    )
+
+    tf_broadcaster_node = Node(
+        package='elkapod_slam',
+        executable='footprint_tf_publisher',
+        output='screen',
+        emulate_tty=True,
+        parameters=[{'use_sim_time': use_sim_time}]
+    )
     return LaunchDescription([
         DeclareLaunchArgument(
             'sim_mode', default_value='true',
             description='Use sim_time'),
-        IncludeLaunchDescription(
-            PythonLaunchDescriptionSource(leg_odometry_launch_path),
-            launch_arguments={'sim_mode': use_sim_time,
-                              'odom_filtered_topic': '/odometry/filtered_leg'}.items()
-        ),
-        Node(
-            package="robot_localization",
-            executable="ekf_node",
-            name='fusion_ekf',
-            parameters=[ekf_config, {'use_sim_time': use_sim_time}],
-            output='screen',
-            emulate_tty=True),
+        relay_node,
+        odom_node,
+        ekf_node,
+        tf_broadcaster_node
     ])

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.5)
-project(elkapod_straight_controller)
+project(elkapod_nav_plugins)
 
 find_package(ament_cmake REQUIRED)
 find_package(nav2_common REQUIRED)
@@ -14,11 +14,10 @@ find_package(tf2 REQUIRED)
 
 nav2_package()
 
-include_directories(
-  include
-)
+include_directories(include)
 
-set(dependencies
+# --- 1. CONTROLLER DEPENDENCIES ---
+set(controller_dependencies
   rclcpp
   geometry_msgs
   nav2_costmap_2d
@@ -29,17 +28,23 @@ set(dependencies
   tf2
 )
 
+# ==========================================
+# LIBRARY 1: ELKAPOD STRAIGHT CONTROLLER
+# ==========================================
 add_library(elkapod_straight_controller SHARED
-        src/elkapod_straight_controller.cpp)
+  src/elkapod_straight_controller.cpp)
 
-# prevent pluginlib from using boost
 target_compile_definitions(elkapod_straight_controller PUBLIC "PLUGINLIB__DISABLE_BOOST_FUNCTIONS")
 
 ament_target_dependencies(elkapod_straight_controller
-  ${dependencies}
+  ${controller_dependencies}
 )
 
-install(TARGETS elkapod_straight_controller
+# ==========================================
+# INSTALLATION & EXPORT
+# ==========================================
+install(TARGETS 
+  elkapod_straight_controller
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
@@ -51,16 +56,23 @@ install(DIRECTORY include/
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
-  # the following line skips the linter which checks for copyrights
   set(ament_cmake_copyright_FOUND TRUE)
   ament_lint_auto_find_test_dependencies()
 endif()
 
 ament_export_include_directories(include)
-ament_export_libraries(elkapod_straight_controller)
-ament_export_dependencies(${dependencies})
 
+# Export BOTH libraries
+ament_export_libraries(elkapod_straight_controller)
+
+# Export ALL dependencies
+ament_export_dependencies(
+  ${controller_dependencies} 
+)
+
+# --- PLUGIN EXPORTS ---
+# 1. Controller needs this (uses pluginlib)
 pluginlib_export_plugin_description_file(nav2_core elkapod_straight_controller.xml)
 
-ament_package()
 
+ament_package()
