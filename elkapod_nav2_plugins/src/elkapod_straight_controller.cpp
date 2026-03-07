@@ -87,7 +87,7 @@ void ElkapodStraightController::setSpeedLimit(const double& speed_limit, const b
 geometry_msgs::msg::TwistStamped ElkapodStraightController::computeVelocityCommands(
     const geometry_msgs::msg::PoseStamped& pose, const geometry_msgs::msg::Twist& velocity,
     nav2_core::GoalChecker* goal_checker) {
-  const double eps = 0.05;
+  const double eps = 0.1;
   // This magic number should have been moved as a parameter, but lazy
   const size_t n = 10;
   (void)velocity;
@@ -118,13 +118,19 @@ geometry_msgs::msg::TwistStamped ElkapodStraightController::computeVelocityComma
     if (found_it != end_it) {
       int dist = static_cast<int>(found_it - closePointIter);
       frac = dist / 10.0;
-      frac = std::max(frac, 0.2);
+      frac = std::max(frac, 0.5);
     }
     cmd_vel.twist.linear.set__x(frac * max_linear_vel);
   } else {
-    double angularVelocity = copysign(1.0, rotationDiff) * max_angular_vel_;
-    double frac = (std::abs(rotationDiff) > 1.0) ? 1.0 : easeOutCubic(std::abs(rotationDiff));
-    cmd_vel.twist.angular.set__z(frac * angularVelocity);
+    double direction = copysign(1.0, rotationDiff); 
+
+    double abs_diff = std::abs(rotationDiff);
+    double frac = (abs_diff > 1.0) ? 1.0 : easeOutCubic(abs_diff);
+
+    frac = std::max(frac, 0.2); 
+
+    // Apply
+    cmd_vel.twist.angular.set__z(direction * frac * max_angular_vel_);
   }
   cmd_vel.header.frame_id = pose.header.frame_id;
   cmd_vel.header.stamp = clock_->now();

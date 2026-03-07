@@ -13,7 +13,8 @@ def generate_launch_description():
     elkapod_slam_dir = get_package_share_directory('elkapod_slam')
     elkapod_odometry_dir = get_package_share_directory('elkapod_odometry')
     ekf_config = os.path.join(elkapod_slam_dir, 'config', 'ekf_config.yaml')
-    odom_config = os.path.join(elkapod_odometry_dir, 'config', 'elkapod_odometry_params.yaml')
+    odom_config = os.path.join(
+        elkapod_odometry_dir, 'config', 'elkapod_odometry_params.yaml')
 
     relay_node = Node(
         package="elkapod_odometry",
@@ -37,12 +38,19 @@ def generate_launch_description():
     ekf_node = Node(
         package="robot_localization",
         executable="ekf_node",
-        name='ekf_filter_node', 
+        name='ekf_filter_node',
         parameters=[ekf_config, {'use_sim_time': use_sim_time}],
         output='screen',
         emulate_tty=True
     )
 
+    tf_broadcaster_node = Node(
+        package='elkapod_slam',
+        executable='footprint_tf_publisher',
+        output='screen',
+        emulate_tty=True,
+        parameters=[{'use_sim_time': use_sim_time}]
+    )
     return LaunchDescription([
         DeclareLaunchArgument(
             'sim_mode', default_value='true',
@@ -50,5 +58,5 @@ def generate_launch_description():
         relay_node,
         odom_node,
         ekf_node,
-        # final_ekf_node
+        tf_broadcaster_node
     ])

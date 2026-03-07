@@ -23,12 +23,9 @@ def launch_setup(context: LaunchContext, *args, **kwargs):
 
     # print(f"Using {database_file_name}")
 
-    rtabmap_config_path = os.path.join(
-        elkapod_slam_dir,
-        'config',
-        'rtabmap.ini'
-    )
-
+    rtabmap_ini = LaunchConfiguration('rtabmap_ini').perform(context)
+    rtabmap_config_path = rtabmap_ini if rtabmap_ini else os.path.join(elkapod_slam_dir,'config','rtabmap.ini')
+    print(rtabmap_config_path)
     frame_id = LaunchConfiguration('frame_id')
 
     external_odom_frame_id = LaunchConfiguration(
@@ -64,7 +61,7 @@ def launch_setup(context: LaunchContext, *args, **kwargs):
     localization = localization == 'true' or localization == 'True'
 
     # Rule of thumb:
-    max_correspondence_distance = voxel_size_value * 10.0
+    # max_correspondence_distance = voxel_size_value * 10.0
 
     shared_parameters = {
         'use_sim_time': use_sim_time,
@@ -78,9 +75,28 @@ def launch_setup(context: LaunchContext, *args, **kwargs):
     icp_odometry_parameters = {
         'expected_update_rate': LaunchConfiguration('expected_update_rate'),
         'wait_imu_to_init': True,
-        'odom_frame_id': 'odom',
-        'guess_frame_id': 'odom',
+        'odom_frame_id': 'icp_odom',
+        'guess_frame_id': fixed_frame_id,
         # RTAB-Map's internal parameters are strings:
+    }
+
+    cloud_assembler_parameters = {
+        'use_sim_time': use_sim_time,
+        "queue_size" : 15,
+        'fixed_frame_id': (external_odom_frame_id if external_odom_frame_id else ""),
+        "frame_id" : "",
+        "max_clouds" : 0,
+        'assembling_time': LaunchConfiguration('assembling_time'),
+        "skip_clouds":  0,
+        "circular_buffer":  False,
+        "linear_update":  0.0,
+        "angular_update":  0.0,
+        "wait_for_transform_duration":  0.1,
+        "range_min":  0.5,
+        "range_max":  15.0,
+        "voxel_size":  voxel_size_value,
+        "noise_radius":  0.0,
+        "noise_min_neighbors":  5
     }
 
     rtabmap_parameters = {
@@ -88,7 +104,7 @@ def launch_setup(context: LaunchContext, *args, **kwargs):
         'subscribe_rgb': False,
         'subscribe_odom_info': not external_odom_frame_id,
         'subscribe_scan_cloud': True,
-        'odom_frame_id': "odom",
+        'odom_frame_id': "icp_odom",
         # This will adjust camera position based on difference between lidar and camera stamps.
         'odom_sensor_sync': True,
     }
@@ -107,7 +123,11 @@ def launch_setup(context: LaunchContext, *args, **kwargs):
     if localization:
         rtabmap_parameters['Mem/IncrementalMemory'] = 'False'
         rtabmap_parameters['Mem/InitWMWithAllNodes'] = 'True'
+        rtabmap_parameters['Rtabmap/MemoryThr'] = '0'
     else:
+        rtabmap_parameters['Mem/IncrementalMemory'] = 'True'
+        rtabmap_parameters['Rtabmap/MemoryThr'] = '200'
+        # rtabmap_parameters['Mem/InitWMWithAllNodes'] = ''
         arguments.append('-d')
 
     if external_odom_frame_id:
@@ -118,12 +138,8 @@ def launch_setup(context: LaunchContext, *args, **kwargs):
     nodes = [
         # Assemble deskewed scans based on icp odometry
         Node(
-            package='rtabmap_util', executable='point_cloud_assembler', output='screen',
-            parameters=[{'config_path': rtabmap_config_path,
-                         'use_sim_time': use_sim_time,
-                         'assembling_time': LaunchConfiguration('assembling_time'),
-                         # This will make the node subscribing to icp odometry topic "icp_odom"
-                         'fixed_frame_id': (external_odom_frame_id if external_odom_frame_id else "")}],
+            package='rtabmap_util', executable='point_cloud_assembler', output='screen',       
+            parameters=[cloud_assembler_parameters],
             remappings=[('cloud', lidar_topic),
                         ('odom', 'icp_odom')],
             namespace=namespace),
@@ -140,7 +156,7 @@ def launch_setup(context: LaunchContext, *args, **kwargs):
                         #  'odom': 'odometry/filtered',
                          'database_path': f'/elkapod_sim_ws/data/{database_file_name}', }],
             remappings=[('imu', imu_topic),
-                    ('odom', '/odometry/filtered'),
+                    ('odom', 'icp_odom'),
                     ('scan_cloud', 'assembled_cloud')],
             arguments=arguments,
             namespace=namespace),
@@ -158,23 +174,23 @@ def launch_setup(context: LaunchContext, *args, **kwargs):
             package='rtabmap_odom', executable='icp_odometry', output='screen',
             parameters=[shared_parameters, icp_odometry_parameters,
                         {'config_path': rtabmap_config_path, 
-                         'publish_tf': False
+                         'publish_tf': True
                         }],
             remappings= [('imu', imu_topic),
                          ('odom', 'icp_odom'),
                          ('scan_cloud', lidar_topic)],
-            arguments=['--ros-args', '--log-level', 'warn'], # <--- ADD THIS LINE
+            arguments=['--ros-args', '--log-level', 'warn'],
             namespace=namespace),
 
-        # Node(
-        #     package='rtabmap_util', executable='imu_to_tf', output='screen',
-        #     parameters=[{'config_path': rtabmap_config_path,
-        #                  'use_sim_time': use_sim_time,
-        #                  'fixed_frame_id': fixed_frame_id,
-        #                  'base_frame_id': frame_id,
-        #                  'wait_for_transform_duration': 0.001}],
-        #     remappings=[('imu/data', imu_topic)],
-        #     namespace=namespace)
+        Node(
+            package='rtabmap_util', executable='imu_to_tf', output='screen',
+            parameters=[{'config_path': rtabmap_config_path,
+                         'use_sim_time': use_sim_time,
+                         'fixed_frame_id': fixed_frame_id,
+                         'base_frame_id': frame_id,
+                         'wait_for_transform_duration': 0.001}],
+            remappings=[('imu/data', imu_topic)],
+            namespace=namespace)
     ]
     odom_fusion = IncludeLaunchDescription(
         PythonLaunchDescriptionSource([os.path.join(
@@ -185,9 +201,13 @@ def launch_setup(context: LaunchContext, *args, **kwargs):
         'sim_mode': use_sim_time}.items()
         )
     
-
-    return [*nodes, odom_fusion]
-    # return [*nodes]
+    multiple_odoms = LaunchConfiguration('fuse_odoms').perform(context)
+    
+    if multiple_odoms.lower() in ('false', '0'):
+        return [*nodes]
+    else:
+        print("Launching leg odometry")
+        return [*nodes, odom_fusion]
 
 
 
@@ -231,7 +251,7 @@ def generate_launch_description():
             description='RGBD images topic (ignored if empty, override "rgbd_image_topic" if set). Would be the output of a rtabmap_sync\'s rgbdx_sync node.'),
 
         DeclareLaunchArgument(
-            'voxel_size', default_value='0.1',
+            'voxel_size', default_value='0.05',
             description='Voxel size (m) of the downsampled lidar point cloud. For indoor, set it between 0.1 and 0.3. For outdoor, set it to 0.5 or over.'),
 
         DeclareLaunchArgument(
@@ -247,12 +267,21 @@ def generate_launch_description():
             description='How much time (sec) we assemble lidar scans before sending them to mapping node.'),
 
         DeclareLaunchArgument(
+            'rtabmap_ini', default_value='',
+            description='Path to the rtabmap ini file, configuring its nodes'
+        ),
+
+        DeclareLaunchArgument(
             'use_rtabmap_viz', default_value='False',
             description='Use RTABMap\'s vizualization tool'),
 
         DeclareLaunchArgument(
             'rtab_db', default_value='',
             description='Name of the database to save results of slam, or used for localization'),
+
+        DeclareLaunchArgument(
+            'fuse_odoms', default_value='False',
+            description='Launch multiple odometry nodes'),
 
         DeclareLaunchArgument(
             'qos', default_value='1',
