@@ -20,7 +20,7 @@ def launch_setup(context: LaunchContext, *args, **kwargs):
     if database_name:
         database_file_name = database_name if database_name.endswith(
             ".db") else database_name + '.db'
-
+    os.makedirs('/elkapod_sim_ws/data', exist_ok=True)
     # print(f"Using {database_file_name}")
 
     rtabmap_ini = LaunchConfiguration('rtabmap_ini').perform(context)
