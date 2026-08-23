@@ -1,0 +1,51 @@
+name: elkapod-navigation
+
+x-vol-x11: &vol-x11 /tmp/.X11-unix:/tmp/.X11-unix:rw
+x-vol-shm: &vol-shm /dev/shm:/dev/shm:rw
+x-vol-xauth: &vol-xauth ${HOME}/.Xauthority:/root/.Xauthority:rw
+
+x-common: &common
+  build:
+    context: .
+    dockerfile: docker/Dockerfile
+    args:
+      BASE_IMAGE: ghcr.io/hexapodbionik/elkapod-ros-jazzy-base:${BASE_TAG:-latest}
+  image: ghcr.io/hexapodbionik/elkapod-navigation:${TAG:-latest}
+  network_mode: host
+  ipc: host
+  shm_size: "1g"
+  stdin_open: true
+  tty: true
+  # rviz2 needs the host GPU.
+  runtime: nvidia
+  environment:
+    TERM: xterm-256color
+    DISPLAY: ${DISPLAY}
+    ROS_DOMAIN_ID: ${ROS_DOMAIN_ID:-0}
+    RMW_IMPLEMENTATION: ${RMW_IMPLEMENTATION:-rmw_fastrtps_cpp}
+    NVIDIA_DRIVER_CAPABILITIES: all
+    NVIDIA_VISIBLE_DEVICES: all
+    __NV_PRIME_RENDER_OFFLOAD: 1
+    __GLX_VENDOR_LIBRARY_NAME: nvidia
+
+services:
+  elkapod_navigation:
+    <<: *common
+    container_name: elkapod-navigation
+    profiles: [ "run" ]
+    volumes:
+      - *vol-x11
+      - *vol-shm
+      - *vol-xauth
+    command: [ "sleep", "infinity" ]
+
+  dev:
+    <<: *common
+    container_name: elkapod-navigation-dev
+    profiles: [ "dev" ]
+    volumes:
+      - *vol-x11
+      - *vol-shm
+      - *vol-xauth
+      - ./:/ws/src/elkapod_navigation
+    command: [ "sleep", "infinity" ]
